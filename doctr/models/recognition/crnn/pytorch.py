@@ -17,9 +17,17 @@ from ...classification import mobilenet_v3_large_r, mobilenet_v3_small_r, vgg16_
 from ...utils.pytorch import load_pretrained_params
 from ..core import RecognitionModel, RecognitionPostProcessor
 
-__all__ = ["CRNN", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
+__all__ = ["CRNN","crnn_vgg16_bn_diacritics", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
 
 default_cfgs: Dict[str, Dict[str, Any]] = {
+    "crnn_vgg16_bn_diacritics": {
+        "mean": (0.694, 0.695, 0.693),
+        "std": (0.299, 0.296, 0.301),
+        "input_shape": (3, 32, 128),
+        "vocab": VOCABS["diacritics_training"],
+        #"url": "https://doctr-static.mindee.com/models?id=v0.3.1/crnn_vgg16_bn-9762b0b0.pt&src=0",
+        "url":"https://github.com/navaneeth031/navindicDocTRforSansDiacritics/releases/download/Model-IASTENG/crnn_vgg16_bn_diacritics_20230815-145907_0.00003_IASTand.Eng_v1.pt",
+    },
     "crnn_vgg16_bn": {
         "mean": (0.694, 0.695, 0.693),
         "std": (0.299, 0.296, 0.301),
@@ -330,3 +338,7 @@ def crnn_mobilenet_v3_large(pretrained: bool = False, **kwargs: Any) -> CRNN:
         ignore_keys=["linear.weight", "linear.bias"],
         **kwargs,
     )
+
+def crnn_vgg16_bn_diacritics(pretrained: bool = False, **kwargs: Any) -> CRNN:
+    #pretrained_backbone=False -- add this for training 
+    return _crnn("crnn_vgg16_bn_diacritics", pretrained, vgg16_bn_r, ignore_keys=["linear.weight", "linear.bias"], **kwargs)

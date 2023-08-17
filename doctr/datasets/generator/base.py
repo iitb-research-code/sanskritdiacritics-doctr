@@ -3,7 +3,7 @@
 # This program is licensed under the Apache License 2.0.
 # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
 
-import random
+import random, os, time
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 from PIL import Image, ImageDraw
@@ -109,6 +109,8 @@ class _WordGenerator(AbstractDataset):
         max_chars: int,
         num_samples: int,
         cache_samples: bool = False,
+        words_txt_path: Optional[str] = None,
+        save_samples_root: Optional[str] = None,
         font_family: Optional[Union[str, List[str]]] = None,
         img_transforms: Optional[Callable[[Any], Any]] = None,
         sample_transforms: Optional[Callable[[Any, Any], Tuple[Any, Any]]] = None,
@@ -126,6 +128,25 @@ class _WordGenerator(AbstractDataset):
                     raise ValueError(f"unable to locate font: {font}")
         self.img_transforms = img_transforms
         self.sample_transforms = sample_transforms
+        self.words_txt_path = words_txt_path
+        self.words_txt_file_contents = None
+
+        self.save_samples_root = save_samples_root
+        if self.save_samples_root:
+            os.makedirs(os.path.join(self.save_samples_root,"images"))
+
+        if words_txt_path:
+            try:
+                with open(words_txt_path, "r", encoding="utf-8") as file:
+                    self.words_txt_file_contents = file.readlines()
+            except FileNotFoundError:
+                self.words_txt_file_contents = None
+                print(f"File not found: {word_txt_path}")
+            except Exception as e:
+                self.words_txt_file_contents = None
+                print(f"An error occurred: {e}")
+
+        #print("self.words_txt_file_contents",type(self.words_txt_file_contents),len(self.words_txt_file_contents),self.words_txt_file_contents[10000:10001])
 
         self._data: List[Image.Image] = []
         if cache_samples:
@@ -133,8 +154,25 @@ class _WordGenerator(AbstractDataset):
             self._data = [
                 (synthesize_text_img(text, font_family=random.choice(self.font_family)), text) for text in _words
             ]
+        self.counter = 0
 
     def _generate_string(self, min_chars: int, max_chars: int) -> str:
+        
+        if self.words_txt_file_contents:
+            #print("self.words_txt_file_contents",self.words_txt_file_contents)
+            #words_list = open(self.words_txt_path, "r", encoding="utf-8").readlines()
+            #print(random.choice(words_list),type(random.choice(words_list)))
+            word=""
+            while (1):
+                word=random.choice(self.words_txt_file_contents).rstrip("\n")
+                if len(word)>12:
+                    continue
+                else:
+                    break
+            
+            return word
+
+            
         num_chars = random.randint(min_chars, max_chars)
         return "".join(random.choice(self.vocab) for _ in range(num_chars))
 
@@ -148,6 +186,10 @@ class _WordGenerator(AbstractDataset):
         else:
             target = self._generate_string(*self.wordlen_range)
             pil_img = synthesize_text_img(target, font_family=random.choice(self.font_family))
+        if self.save_samples_root:
+            img_name = str(self.counter)+".png"
+            pil_img.save(os.path.join(self.save_samples_root,"images",img_name))
+            self.counter += 1
         img = tensor_from_pil(pil_img)
 
         return img, target

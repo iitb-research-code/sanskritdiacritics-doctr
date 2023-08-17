@@ -1,0 +1,304 @@
+diff --git a/doctr/datasets/generator/base.py b/doctr/datasets/generator/base.py
+index 4046559..6412587 100644
+--- a/doctr/datasets/generator/base.py
++++ b/doctr/datasets/generator/base.py
+@@ -3,7 +3,7 @@
+ # This program is licensed under the Apache License 2.0.
+ # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
+ 
+-import random
++import random, os, time
+ from typing import Any, Callable, List, Optional, Tuple, Union
+ 
+ from PIL import Image, ImageDraw
+@@ -109,6 +109,8 @@ class _WordGenerator(AbstractDataset):
+         max_chars: int,
+         num_samples: int,
+         cache_samples: bool = False,
++        words_txt_path: Optional[str] = None,
++        save_samples_root: Optional[str] = None,
+         font_family: Optional[Union[str, List[str]]] = None,
+         img_transforms: Optional[Callable[[Any], Any]] = None,
+         sample_transforms: Optional[Callable[[Any, Any], Tuple[Any, Any]]] = None,
+@@ -126,6 +128,25 @@ class _WordGenerator(AbstractDataset):
+                     raise ValueError(f"unable to locate font: {font}")
+         self.img_transforms = img_transforms
+         self.sample_transforms = sample_transforms
++        self.words_txt_path = words_txt_path
++        self.words_txt_file_contents = None
++
++        self.save_samples_root = save_samples_root
++        if self.save_samples_root:
++            os.makedirs(os.path.join(self.save_samples_root,"images"))
++
++        if words_txt_path:
++            try:
++                with open(words_txt_path, "r", encoding="utf-8") as file:
++                    self.words_txt_file_contents = file.readlines()
++            except FileNotFoundError:
++                self.words_txt_file_contents = None
++                print(f"File not found: {word_txt_path}")
++            except Exception as e:
++                self.words_txt_file_contents = None
++                print(f"An error occurred: {e}")
++
++        #print("self.words_txt_file_contents",type(self.words_txt_file_contents),len(self.words_txt_file_contents),self.words_txt_file_contents[10000:10001])
+ 
+         self._data: List[Image.Image] = []
+         if cache_samples:
+@@ -133,8 +154,25 @@ class _WordGenerator(AbstractDataset):
+             self._data = [
+                 (synthesize_text_img(text, font_family=random.choice(self.font_family)), text) for text in _words
+             ]
++        self.counter = 0
+ 
+     def _generate_string(self, min_chars: int, max_chars: int) -> str:
++        
++        if self.words_txt_file_contents:
++            #print("self.words_txt_file_contents",self.words_txt_file_contents)
++            #words_list = open(self.words_txt_path, "r", encoding="utf-8").readlines()
++            #print(random.choice(words_list),type(random.choice(words_list)))
++            word=""
++            while (1):
++                word=random.choice(self.words_txt_file_contents).rstrip("\n")
++                if len(word)>12:
++                    continue
++                else:
++                    break
++            
++            return word
++
++            
+         num_chars = random.randint(min_chars, max_chars)
+         return "".join(random.choice(self.vocab) for _ in range(num_chars))
+ 
+@@ -148,6 +186,10 @@ class _WordGenerator(AbstractDataset):
+         else:
+             target = self._generate_string(*self.wordlen_range)
+             pil_img = synthesize_text_img(target, font_family=random.choice(self.font_family))
++        if self.save_samples_root:
++            img_name = str(self.counter)+".png"
++            pil_img.save(os.path.join(self.save_samples_root,"images",img_name))
++            self.counter += 1
+         img = tensor_from_pil(pil_img)
+ 
+         return img, target
+diff --git a/doctr/datasets/vocabs.py b/doctr/datasets/vocabs.py
+index 1a88a6e..3ae0d59 100644
+--- a/doctr/datasets/vocabs.py
++++ b/doctr/datasets/vocabs.py
+@@ -20,12 +20,37 @@ VOCABS: Dict[str, str] = {
+     "hindi_digits": "٠١٢٣٤٥٦٧٨٩",
+     "arabic_diacritics": "ًٌٍَُِّْ",
+     "arabic_punctuation": "؟؛«»—",
++    "sanskrit_unicode": "ऀँंःऄअआइईउऊऋऌऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसहऺऻ़ऽािीुूृॄॅॆेैॉॊोौ्ॎॏॐ॒॑॓क़ख़ग़ज़ड़ढ़फ़य़ॠॢॣ।॥०१२३४५६७८९॰ॱॲॳॴॵॶॷॸॹॺॻॼॽॾॿ",
++    "sanskrit_numerals": "१२३४५६७८९०",
++    "sanskrit_alphabets":"अआइईउऊएऐओऔअंअँअःआःआंआँइःइंइँईःईंउःउँउंऊःऊँऊंएःएँएंऐःऐंओःओंऔःऔंऋकखगघङचछजझञटठडढणतथदधनपफबभमयरलवसशषहक्षत्रज्ञकाकिकीकुकूक्रर्ककृकोकौकेकैकंक़कॉकःकखाखिखीखुखूखेखैख्रर्खख़खॉखंखृखोखौखःगागिगीगुगूगेगैगोगौगृग्रर्गगॉग़गंगःघौघैघाघीघूघ़घॉघृघोघेघिघुघंघॅघःघँघङृङौङैङाङीङूङङॉङोङेङ्ङिङुङंङ्रङॅङँचृचौचैचाचीचूच़चॉचोचेचिचुचंच्रचॅचँर्चचःछृछौछैछाछीछूछ़छॉछोछेछिछुछंछॅछ्रर्छछँछःजृजौजैजाजीजूज़जॉजोजेजिजुजंजॅज्रर्जजँजःझृझौझैझाझीझूझ़झॉझोझेझिझुझंझॅझ्रझःर्झझँञःञॉञंञँटृटौटैटाटीटूट़टॉटोटेटिटुटंटॅट्रर्टटःटँठृठौठैठाठीठूठ़ठॉठोठेठिठुठंठॅठ्रठःर्ठठँडृडौडैडाडीडूडॉडोडेडिडुडंडॅड्रडःर्डडँढृढौढैढाढीढूढ़ढॉढोढेढिढुढंढॅढ्रढःढँणृणौणैणाणीणूणॉणोणेणिणुणंणॅण्रणःणँर्णतृतौतैतातीतूत़तॉतोतेतितुतंतॅत्रतःततँर्तथृथौथैथाथीथूथ़थॉथोथेथिथुथंथॅथ्रथःथँर्थदृदौदैदादीदूद़दॉदोदेदिदुदंदॅद्रदःदँर्दधृधौधैधाधीधूध़धॉधोधेधिधुधंधॅध्रधःधँर्धनौनैनानीनूनृनोनेनिनुनंनॅन्रनःनँनॉऩपृपौपैपापीपूप़पॉपोपेपिपुपंपॅप्रपःर्पपँफृफौफैफाफीफूफ़फॉफोफेफिफुफंफॅफ्रफःफँँर्फबृबौबाबीबूब़बॉबोबेबिबुबंबॅब्रबःर्बबँभृभौभैभाभीभूभ़भॉभोभेभिभुभंभॅभ्रभःभँर्भमृमौमैमामीमूम़मॉमोमेमिमुमंमॅम्रमःमँर्मयृयौयैयायीयूय़यॉयोयेयियुयंयॅय्रयःयँर्यरृरौरैरारीरूऱरॉरोरेरिरुरंरॅर्ररःरँलृलौलैलालीलूल़लॉलोलेलिलुलंलॅल्रलःलँर्लवृवौवैवावीवूव़वॉवोवेविवुवंवॅव्रवःवँर्वसृसौसैसासीसूस़सॉसोसेसिसुससंसॅस्रसःसँर्सशृशौशैशाशीशूश़शॉशोशेशिशुशंशॅश्रशःशँर्शषृषौषैषाषीषूष़षॉषोषेषिषुषंषॅष्रषःर्षषँहृहौहैहाहीहूह़हॉहोहेहिहुहंहॅह्रहःहँर्हश्रृश्रौश्रैश्राश्रीश्रूश्रॉश्रोश्रेश्रिश्रुश्रंश्रॅश्रःश्रँर्श्रक्षृक्षौक्षैक्षाक्षीक्षूक्ष़क्षॉक्षोक्षेक्षिक्षुक्षंक्षॅक्ष्रक्षःक्षँर्क्षत्रृत्रौत्रैत्रात्रीत्रूत्ऱत्रॉत्रोत्रेत्रित्रुत्रंत्रॅत्रःत्रँर्त्रळः",
++    
++    "sanskrit_transliterated": "'(-0123456789:A[abcdeghijklmnoprstuvy|ñāēīōśū̥̄̐।॥ḍḥṁṃṅṇṛṣṭ" #.\u200c\u200d",
++
+ }
+ 
+-VOCABS["latin"] = VOCABS["digits"] + VOCABS["ascii_letters"] + VOCABS["punctuation"]
++VOCABS['bengali'] = 'শ০ূৃৰজআঔঅঊিঢ়খ৵পঢই৳ফঽ৪লেঐযঃঈঠুধড়৲ৄথভটঁঋৱরডৢছ৴ঙওঘস১৹ণগ৷৩ত৮হ৭োষৎ৶কন৬চমৈা়ীৠঝএ৻ব৯য়উৌঞ৺২ংৣদ৫্ৗ-।'
++VOCABS['gujarati'] = '૮લઔ૨સખાઑઈઋૐઓવૄ૦઼ઁનઞઊ૫ીશફણ૬૭બ૧રળૌુઠઐઉષપેઇઅૃઝજૉક૱૯ગઍદો૪ૅએંહડઘ૩ૂછઙઃઽટતધિૈયઢ્આમથચભ-'
++VOCABS['gurumukhi'] = 'ਗ਼ਵਨਁਰਊਖਂਆਜੈਲੴਣ੧ਛਭਫ੮੯ਚਔੀਯਹਲ਼ਞ੩ੜਫ਼ੁਮ੫ਤੇਦਸ਼ਟੰ੭ਓਅਃਡਾਉਠੱਈ੦ੵਖ਼ਏਕਥ੬ਧੲੑਝਿ੨ਐਬਪਘਸ਼ਙੌਜ਼ੋਗ੍ੳਇ੪ੂਢ-।'
++VOCABS['kannada'] = 'ಚೕಒಉೖಂಲಾಝಟೆಅ೬ೇ೨ಬಡವಜಢಞಔಏಧಶಭತಳೀಕಐಈಠಪ೫ಣ೮ೞಆಯುಗೢಋದಘೂ್ೈ೦ಓಱಃಹ೯ೋಮ೭ೠಥಖಫಇರ೪ಛಙೣಿ೩ೌೄಷಌಸನ಼ಊಎ೧ೃೊ-'
++VOCABS['malayalam'] = '൪ഉ൮ള൵ഔംസഞഎഷ൫ൄൌ-ഃൈീഌഛഇണാഈഹധ൭ജച൱൴൹യതൻശഒ൯ഗർഊആവഖൠൣ൩ോൽ൧അ൳ൗപഭൃ്മെഐൡഓദഏറിഠരൺ൰ൾങട൦ഢൢഡലേഴഝൊ൲ബനൂഥൿഘഫുഋക൬൨ '
++VOCABS['odia'] = 'ଖ୯୬ୋଓଞ୍ଶ୪ଣଥଚରୄତଃେ୮ଆକଵୂନଦ୰ୖୢଜଉଳଅଁଲଯଔପ୭ଷଢଡ଼ଊୟମିୁ୧ଂ଼ୀବଟଭଢ଼୦ଘଠୗ୫ୡାଐ୨ଙହଈୱ୩ୃଛଏୌଗଫସଇଧଡଝୈୣୠଋ-।'
++VOCABS['tamil'] = 'ய௴ஷ௫ைெஸஎஈோவ௲ூு௭அ்ஶி௰ஹ௧ௐா௮ஔ௺சீண௩இனஆழ௪௯ஙஊதஜ௷௶மௌள௸ஐபநேற௬டஒ௹ஞஉஏகௗொர௱௵ஃ௨லஓ௳௦-'
++VOCABS['telugu'] = '౦ఱకఆఋడత౯౻ిహౌ౭౽ఉ౮్ధఓగ౼మ౫ూౠఔాఇనైఁజీౄుేసశృఃఝఢరఠలోఞౘఅ౹౧ౢఛబ౸ఐయ౩ఖటచెొఊదఈషథభఏౙ౬౾ఎ౪ణఒప౨ఫంఘఙళవ౺-'
++VOCABS['urdu'] = 'ٱيأۃدےش‘زعكئںسحٰنؐةقذ؟ؔ۔—ًمھٗپغٖطإؒرڑصټٍگاؤجضْﷺچ‎ۓِّؓٹظىتڈ‍یُه،خو؛آفبؑلہثﺅ‌ژَۂءک‏'
++
++
++
++VOCABS['hindi'] = 'ॲऽऐथफएऎह८॥ॉम९ुँ१ं।षघठर॓ॼड़गछिॱटऩॄऑवल५ढ़य़अञसऔयण॑क़॒ौॽशऍ॰ूीऒॊख़उज़ॻॅ३ओऌळनॠ०ेढङ४़ॢग़पऊॐज२डैभझकआदबऋखॾ॔ोइ्धतफ़ईृःा६चऱऴ७-'
++VOCABS['sanskrit']='ज़ऋुड़ऍऐक५टय४उः३ॠध९्७ू१वऌौॐॡॢइ६ाै८नृअंथढेखऔघग़०लजोईरञपफँझभषॅॄगतचहसीढ़आशए।म२दठङबिऊडओळछण़ऽ'
++VOCABS['devanagari'] = 'रचख़३ॾऍृेञलॻॉऴषॐॢ१य०ॽएा२ई।ग़७टऐय़॥तोदऽभुनओऒ-ठँ.ौ्८ॼझॠविःक़ी॰छॅॊऩऱ़थजशळङअऋखबफउ५फ़६ऊॲॆज़कढ़मूस॓इऔह॑ैगढॣधआड़९ं४डणपॄघऑ'
++VOCABS["latin"] = (
++    VOCABS["digits"] 
++    + VOCABS["ascii_letters"] 
++    + VOCABS["punctuation"]
++    )
+ VOCABS["english"] = VOCABS["latin"] + "°" + VOCABS["currency"]
+-VOCABS["legacy_french"] = VOCABS["latin"] + "°" + "àâéèêëîïôùûçÀÂÉÈËÎÏÔÙÛÇ" + VOCABS["currency"]
+-VOCABS["french"] = VOCABS["english"] + "àâéèêëîïôùûüçÀÂÉÈÊËÎÏÔÙÛÜÇ"
++VOCABS["legacy_french"] = VOCABS["latin"] + "°" + "àâéèêëîïôùûçÀÂÉÈËÎÏÔÙÛÇ" + 'oQॐ∗}̭≥Ñࢇu–ा1\'°9śা२+hजষअॣ∘V̤औw`(तū$ऋऐौषचऩ३Cघ[িk”छपs∓aे…‍उOeऽl)य़⊤थḹ⌊র९१ठऱপটṣṃ:g“q!yলय~ल|◌p̂]PTকसz&Uैṝॊ—ẏबখṛळआ×ँ॰’ी॑Kdग०ड़ॄZ६F−ġहṟ4{द̇ऌॡ≤⋆Sᳳ∴\bखবॅ्⌋.>झढ़0ò॥ṭ∵∿एīঃ8?वुङ-IिBiশrnm͟ज़HृW2xYন%७ट6Xॉढ/भ‑=fःधṇṅ‌A∼Rvञ४7ॠ5èুম∾Mḍशइ८D𝜁ऎ÷,ोण;मू†Lস3कडḥjॢEñ∙∻∽GJী५फṉcā*‘़∮ḷ"रऊ<্॒न_√tई।∠ओ' + VOCABS["currency"] #+ VOCABS["sanskrit_transliterated"]
++VOCABS["french"] = VOCABS["english"] + "'(-.0123456789:A[abcdeghijklmnoprstuvy|ñāēīōśū̥̄̐।॥ḍḥṁṃṅṇṛṣṭ\u200c\u200d" #"àâéèêëîïôùûüçÀÂÉÈÊËÎÏÔÙÛÜÇ"
+ VOCABS["portuguese"] = VOCABS["english"] + "áàâãéêíïóôõúüçÁÀÂÃÉÊÍÏÓÔÕÚÜÇ"
+ VOCABS["spanish"] = VOCABS["english"] + "áéíóúüñÁÉÍÓÚÜÑ" + "¡¿"
+ VOCABS["german"] = VOCABS["english"] + "äöüßÄÖÜẞ"
+@@ -44,3 +69,21 @@ VOCABS["vietnamese"] = (
+     + "áàảạãăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệóòỏõọôốồổộỗơớờởợỡúùủũụưứừửữựiíìỉĩịýỳỷỹỵ"
+     + "ÁÀẢẠÃĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÓÒỎÕỌÔỐỒỔỘỖƠỚỜỞỢỠÚÙỦŨỤƯỨỪỬỮỰIÍÌỈĨỊÝỲỶỸỴ"
+ )
++VOCABS["transliterated"] = (
++    VOCABS["english"]
++    + VOCABS["sanskrit_transliterated"]
++    )
++
++
++VOCABS["diacritics_training"] = (
++    VOCABS["english"]
++     + VOCABS["sanskrit_transliterated"]
++    #+VOCABS["devanagari"]
++     #  +VOCABS["sanskrit_unicode"]
++
++    )
++
++#print("\n\n\n")
++print(VOCABS["diacritics_training"])
++#print("\n\n\n")
++
+diff --git a/doctr/models/recognition/crnn/pytorch.py b/doctr/models/recognition/crnn/pytorch.py
+index b1e50f1..8aaafac 100644
+--- a/doctr/models/recognition/crnn/pytorch.py
++++ b/doctr/models/recognition/crnn/pytorch.py
+@@ -17,9 +17,17 @@ from ...classification import mobilenet_v3_large_r, mobilenet_v3_small_r, vgg16_
+ from ...utils.pytorch import load_pretrained_params
+ from ..core import RecognitionModel, RecognitionPostProcessor
+ 
+-__all__ = ["CRNN", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
++__all__ = ["CRNN","crnn_vgg16_bn_diacritics", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
+ 
+ default_cfgs: Dict[str, Dict[str, Any]] = {
++    "crnn_vgg16_bn_diacritics": {
++        "mean": (0.694, 0.695, 0.693),
++        "std": (0.299, 0.296, 0.301),
++        "input_shape": (3, 32, 128),
++        "vocab": VOCABS["diacritics_training"],
++        #"url": "https://doctr-static.mindee.com/models?id=v0.3.1/crnn_vgg16_bn-9762b0b0.pt&src=0",
++        "url":"https://github.com/navaneeth031/navindicDocTRforSansDiacritics/releases/download/Model-IASTENG/crnn_vgg16_bn_diacritics_20230815-145907_0.00003_IASTand.Eng_v1.pt",
++    },
+     "crnn_vgg16_bn": {
+         "mean": (0.694, 0.695, 0.693),
+         "std": (0.299, 0.296, 0.301),
+@@ -330,3 +338,7 @@ def crnn_mobilenet_v3_large(pretrained: bool = False, **kwargs: Any) -> CRNN:
+         ignore_keys=["linear.weight", "linear.bias"],
+         **kwargs,
+     )
++
++def crnn_vgg16_bn_diacritics(pretrained: bool = False, **kwargs: Any) -> CRNN:
++    #pretrained_backbone=False -- add this for training 
++    return _crnn("crnn_vgg16_bn_diacritics", pretrained, vgg16_bn_r, ignore_keys=["linear.weight", "linear.bias"], **kwargs)
+\ No newline at end of file
+diff --git a/doctr/models/recognition/zoo.py b/doctr/models/recognition/zoo.py
+index 74f5c40..c87c300 100644
+--- a/doctr/models/recognition/zoo.py
++++ b/doctr/models/recognition/zoo.py
+@@ -15,6 +15,7 @@ __all__ = ["recognition_predictor"]
+ 
+ 
+ ARCHS: List[str] = [
++    "crnn_vgg16_bn_diacritics",
+     "crnn_vgg16_bn",
+     "crnn_mobilenet_v3_small",
+     "crnn_mobilenet_v3_large",
+diff --git a/references/recognition/README.md b/references/recognition/README.md
+index 5fa5510..57e41fd 100644
+--- a/references/recognition/README.md
++++ b/references/recognition/README.md
+@@ -97,3 +97,14 @@ Running the training script should look like this for multiple custom fonts:
+ ```shell
+ python references/recognition/train_pytorch.py crnn_vgg16_bn --epochs 5 --font "custom-font-1.ttf,custom-font-2.ttf"
+ ```
++
++##########################################################################
++Local guidelines pertaining to the current workspace.
++
++Training command (working as of 10,aug,23):
++
++python references/recognition/train_pytorch.py crnn_vgg16_bn_diacritics --epochs 2 --device 1 --font DejaVuSans-Bold.ttf -b 512 --vocab diacritics_training --input_size 64
++
++Training command (training completed --crnn_vgg16_bn_diacritics_20230811-020435-200e.pt):
++
++python references/recognition/train_pytorch.py crnn_vgg16_bn_diacritics --epochs 200 --device 1 --font /home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Arial.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Cardo104s.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/DejaVuSans.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/EBGaramond12-Regular.otf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Georgia.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Lato-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Quicksand-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Times_New_Roman.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Verdana.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/Carlito-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/CharisSIL-R.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/NotoSans-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/OpenSans-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/chandas.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Lohit-Devanagari.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/NotoSansDevanagari-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Poppins-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Sanskrit2003.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Shobhika-Regular.otf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/uttara.ttf -b 1024 --vocab diacritics_training --input_size 32
+diff --git a/references/recognition/train_pytorch.py b/references/recognition/train_pytorch.py
+index c419571..c2a5144 100644
+--- a/references/recognition/train_pytorch.py
++++ b/references/recognition/train_pytorch.py
+@@ -12,6 +12,7 @@ import hashlib
+ import logging
+ import multiprocessing as mp
+ import time
++import json
+ from pathlib import Path
+ 
+ import numpy as np
+@@ -151,6 +152,8 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
+     val_metric.reset()
+     # Validation loop
+     val_loss, batch_cnt = 0, 0
++    predictionsForSavingResult = []
++
+     for images, targets in val_loader:
+         if torch.cuda.is_available():
+             images = images.cuda()
+@@ -160,6 +163,19 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
+                 out = model(images, targets, return_preds=True)
+         else:
+             out = model(images, targets, return_preds=True)
++
++        #print("\n\nout: ",out["loss"])
++        #print("\n\nlen(targets): ",targets[0:10])
++
++        #break
++
++        d = {}
++        for eleIndex in range(0,len(out['preds'])):
++            d['pred'] = out['preds'][eleIndex]
++            d['actual'] = targets[eleIndex]
++
++            predictionsForSavingResult.append(d)
++        
+         # Compute metric
+         if len(out["preds"]):
+             words, _ = zip(*out["preds"])
+@@ -170,6 +186,10 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
+         val_loss += out["loss"].item()
+         batch_cnt += 1
+ 
++    print("length of predictionsForSavingResult",len(predictionsForSavingResult))
++    with open("/home/venkat/workspace/sanskritdiacritics-doctr/data/data/results.json", "w") as myfinalresultfile:
++        json.dump(predictionsForSavingResult, myfinalresultfile, indent=4, ensure_ascii=False)
++
+     val_loss /= batch_cnt
+     result = val_metric.summary()
+     return val_loss, result["raw"], result["unicase"]
+@@ -208,7 +228,9 @@ def main(args):
+             min_chars=args.min_chars,
+             max_chars=args.max_chars,
+             num_samples=args.val_samples * len(vocab),
++            words_txt_path=args.words_txt_path,
+             font_family=fonts,
++            save_samples_root = args.save_samples_root,
+             img_transforms=Compose(
+                 [
+                     T.Resize((args.input_size, 4 * args.input_size), preserve_aspect_ratio=True),
+@@ -307,7 +329,9 @@ def main(args):
+             min_chars=args.min_chars,
+             max_chars=args.max_chars,
+             num_samples=args.train_samples * len(vocab),
++            words_txt_path=args.words_txt_path,
+             font_family=fonts,
++            save_samples_root=None,
+             img_transforms=Compose(
+                 [
+                     T.Resize((args.input_size, 4 * args.input_size), preserve_aspect_ratio=True),
+@@ -460,6 +484,7 @@ def parse_args():
+     parser.add_argument(
+         "--show-samples", dest="show_samples", action="store_true", help="Display unormalized training samples"
+     )
++    parser.add_argument("--words_txt_path", help="The text file contains the words to prepare dataset from.")
+     parser.add_argument("--wb", dest="wb", action="store_true", help="Log to Weights & Biases")
+     parser.add_argument("--push-to-hub", dest="push_to_hub", action="store_true", help="Push to Huggingface Hub")
+     parser.add_argument(
+@@ -471,6 +496,8 @@ def parse_args():
+     parser.add_argument("--sched", type=str, default="cosine", help="scheduler to use")
+     parser.add_argument("--amp", dest="amp", help="Use Automatic Mixed Precision", action="store_true")
+     parser.add_argument("--find-lr", action="store_true", help="Gridsearch the optimal LR")
++    parser.add_argument("--save_samples_root", help="saves samples as images")
++
+     args = parser.parse_args()
+ 
+     return args

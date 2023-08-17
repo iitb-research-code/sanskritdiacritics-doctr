@@ -1,0 +1,338 @@
+[
+    {
+        "pred": [
+            "ṣaṇviṃśe",
+            0.3783761262893677
+        ],
+        "actual": "ṣaḍviṃśe"
+    },
+    {
+        "pred": [
+            "questimating",
+            0.5889757871627808
+        ],
+        "actual": "guestimating"
+    },
+    {
+        "pred": [
+            "seavengers",
+            0.6419532895088196
+        ],
+        "actual": "scavengers"
+    },
+    {
+        "pred": [
+            "taater",
+            0.271825909614563
+        ],
+        "actual": "traumato-"
+    },
+    {
+        "pred": [
+            "am-ja",
+            0.8243853449821472
+        ],
+        "actual": "aṃ-ia"
+    },
+    {
+        "pred": [
+            "s",
+            0.15465125441551208
+        ],
+        "actual": "snoove"
+    },
+    {
+        "pred": [
+            "narāśi",
+            0.8211982846260071
+        ],
+        "actual": "ṇarāśi"
+    },
+    {
+        "pred": [
+            "crosa-carve",
+            0.5020201206207275
+        ],
+        "actual": "cross-carve"
+    },
+    {
+        "pred": [
+            "ṭ",
+            0.5312458872795105
+        ],
+        "actual": "ḍ"
+    },
+    {
+        "pred": [
+            "vā'sṭyai",
+            0.6349615454673767
+        ],
+        "actual": "vā'ṣṭyai"
+    },
+    {
+        "pred": [
+            "jaṭa",
+            0.5923663973808289
+        ],
+        "actual": "jata"
+    },
+    {
+        "pred": [
+            "ghṛṇīyāstām",
+            0.7590970396995544
+        ],
+        "actual": "ghṛṣīyāstām"
+    },
+    {
+        "pred": [
+            "hd",
+            0.9070693254470825
+        ],
+        "actual": "hd."
+    },
+    {
+        "pred": [
+            "acīcatadhvam",
+            0.6580267548561096
+        ],
+        "actual": "acīcaṭadhvam"
+    },
+    {
+        "pred": [
+            "molam-mala",
+            0.5334957242012024
+        ],
+        "actual": "molaṃ-mala"
+    },
+    {
+        "pred": [
+            "recarances",
+            0.4202686548233032
+        ],
+        "actual": "recurrences"
+    },
+    {
+        "pred": [
+            "Celt",
+            0.741080641746521
+        ],
+        "actual": "Celt."
+    },
+    {
+        "pred": [
+            "pyāryeneda",
+            0.5633798241615295
+        ],
+        "actual": "pyāryeṇeda"
+    },
+    {
+        "pred": [
+            "tā",
+            0.5099143981933594
+        ],
+        "actual": "tām"
+    },
+    {
+        "pred": [
+            "ṣaṭet",
+            0.6327418684959412
+        ],
+        "actual": "saṭet"
+    },
+    {
+        "pred": [
+            "quinguennia",
+            0.7735904455184937
+        ],
+        "actual": "quinquennia"
+    },
+    {
+        "pred": [
+            "lennerstown",
+            0.7339493036270142
+        ],
+        "actual": "Jennerstown"
+    },
+    {
+        "pred": [
+            "tato'parāhne",
+            0.6637090444564819
+        ],
+        "actual": "tato'parāhṇe"
+    },
+    {
+        "pred": [
+            "abhāṣiṣyata",
+            0.7064753770828247
+        ],
+        "actual": "abhāsiṣyata"
+    },
+    {
+        "pred": [
+            "āṣṭiṣāthām",
+            0.6965263485908508
+        ],
+        "actual": "āṭṭiṣāthām"
+    },
+    {
+        "pred": [
+            "Luth",
+            0.9815632104873657
+        ],
+        "actual": "Luth."
+    },
+    {
+        "pred": [
+            "sat",
+            0.16061238944530487
+        ],
+        "actual": "avata"
+    },
+    {
+        "pred": [
+            "pranamya",
+            0.6529923677444458
+        ],
+        "actual": "praṇamya"
+    },
+    {
+        "pred": [
+            "ājjvahe",
+            0.5845821499824524
+        ],
+        "actual": "ājivahe"
+    },
+    {
+        "pred": [
+            "mu",
+            0.582433819770813
+        ],
+        "actual": "muu"
+    },
+    {
+        "pred": [
+            "nakṣatrānīti",
+            0.5460573434829712
+        ],
+        "actual": "nakṣatrāṇīti"
+    },
+    {
+        "pred": [
+            "disconneets",
+            0.7029197812080383
+        ],
+        "actual": "disconnects"
+    },
+    {
+        "pred": [
+            "piṣyethā",
+            0.5198473334312439
+        ],
+        "actual": "pisyethā"
+    },
+    {
+        "pred": [
+            "nādaya",
+            0.8953419327735901
+        ],
+        "actual": "nāḍaya"
+    },
+    {
+        "pred": [
+            "romansical",
+            0.632507860660553
+        ],
+        "actual": "romancical"
+    },
+    {
+        "pred": [
+            "śakuṇeṣu",
+            0.6863640546798706
+        ],
+        "actual": "śakuneṣu"
+    },
+    {
+        "pred": [
+            "punḍiṣyāmahe",
+            0.5995633006095886
+        ],
+        "actual": "puṇḍiṣyāmahe"
+    },
+    {
+        "pred": [
+            "atodiṣye",
+            0.5846160054206848
+        ],
+        "actual": "atoḍiṣye"
+    },
+    {
+        "pred": [
+            "pāribhāṭikam",
+            0.6287958025932312
+        ],
+        "actual": "pāribhāṣikam"
+    },
+    {
+        "pred": [
+            "vaṅkayasva",
+            0.5421087145805359
+        ],
+        "actual": "vaṣkayasva"
+    },
+    {
+        "pred": [
+            "st",
+            0.5719806551933289
+        ],
+        "actual": "strews"
+    },
+    {
+        "pred": [
+            "B.T.U",
+            0.5278835296630859
+        ],
+        "actual": "B.T.U."
+    },
+    {
+        "pred": [
+            "kṛṇutam",
+            0.7679302096366882
+        ],
+        "actual": "kṣṇutam"
+    },
+    {
+        "pred": [
+            "unshialdable",
+            0.8151145577430725
+        ],
+        "actual": "unshieldable"
+    },
+    {
+        "pred": [
+            "Liliflorae",
+            0.5076056122779846
+        ],
+        "actual": "Liliiflorae"
+    },
+    {
+        "pred": [
+            "pyiamaed",
+            0.8695800304412842
+        ],
+        "actual": "pyjamaed"
+    },
+    {
+        "pred": [
+            "kramāṇnyāsa",
+            0.582624614238739
+        ],
+        "actual": "kramānnyāsa"
+    },
+    {
+        "pred": [
+            "st",
+            0.4100063145160675
+        ],
+        "actual": "rtma"
+    }
+]

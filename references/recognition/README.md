@@ -97,3 +97,14 @@ Running the training script should look like this for multiple custom fonts:
 ```shell
 python references/recognition/train_pytorch.py crnn_vgg16_bn --epochs 5 --font "custom-font-1.ttf,custom-font-2.ttf"
 ```
+
+##########################################################################
+Local guidelines pertaining to the current workspace.
+
+Training command (working as of 10,aug,23):
+
+python references/recognition/train_pytorch.py crnn_vgg16_bn_diacritics --epochs 2 --device 1 --font DejaVuSans-Bold.ttf -b 512 --vocab diacritics_training --input_size 64
+
+Training command (training completed --crnn_vgg16_bn_diacritics_20230811-020435-200e.pt):
+
+python references/recognition/train_pytorch.py crnn_vgg16_bn_diacritics --epochs 200 --device 1 --font /home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Arial.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Cardo104s.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/DejaVuSans.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/EBGaramond12-Regular.otf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Georgia.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Lato-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Quicksand-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Times_New_Roman.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Verdana.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/Carlito-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/CharisSIL-R.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/NotoSans-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/OpenSans-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/chandas.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Lohit-Devanagari.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/NotoSansDevanagari-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Poppins-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Sanskrit2003.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Shobhika-Regular.otf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/uttara.ttf -b 1024 --vocab diacritics_training --input_size 32

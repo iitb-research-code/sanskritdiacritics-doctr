@@ -12,6 +12,7 @@ import hashlib
 import logging
 import multiprocessing as mp
 import time
+import json
 from pathlib import Path
 
 import numpy as np
@@ -151,6 +152,8 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
     val_metric.reset()
     # Validation loop
     val_loss, batch_cnt = 0, 0
+    predictionsForSavingResult = []
+
     for images, targets in val_loader:
         if torch.cuda.is_available():
             images = images.cuda()
@@ -160,6 +163,19 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
                 out = model(images, targets, return_preds=True)
         else:
             out = model(images, targets, return_preds=True)
+
+        #print("\n\nout: ",out["loss"])
+        #print("\n\nlen(targets): ",targets[0:10])
+
+        #break
+
+        d = {}
+        for eleIndex in range(0,len(out['preds'])):
+            d['pred'] = out['preds'][eleIndex]
+            d['actual'] = targets[eleIndex]
+
+            predictionsForSavingResult.append(d)
+        
         # Compute metric
         if len(out["preds"]):
             words, _ = zip(*out["preds"])
@@ -169,6 +185,10 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
 
         val_loss += out["loss"].item()
         batch_cnt += 1
+
+    print("length of predictionsForSavingResult",len(predictionsForSavingResult))
+    with open("/home/venkat/workspace/sanskritdiacritics-doctr/data/data/results.json", "w") as myfinalresultfile:
+        json.dump(predictionsForSavingResult, myfinalresultfile, indent=4, ensure_ascii=False)
 
     val_loss /= batch_cnt
     result = val_metric.summary()
@@ -208,7 +228,9 @@ def main(args):
             min_chars=args.min_chars,
             max_chars=args.max_chars,
             num_samples=args.val_samples * len(vocab),
+            words_txt_path=args.words_txt_path,
             font_family=fonts,
+            save_samples_root = args.save_samples_root,
             img_transforms=Compose(
                 [
                     T.Resize((args.input_size, 4 * args.input_size), preserve_aspect_ratio=True),
@@ -307,7 +329,9 @@ def main(args):
             min_chars=args.min_chars,
             max_chars=args.max_chars,
             num_samples=args.train_samples * len(vocab),
+            words_txt_path=args.words_txt_path,
             font_family=fonts,
+            save_samples_root=None,
             img_transforms=Compose(
                 [
                     T.Resize((args.input_size, 4 * args.input_size), preserve_aspect_ratio=True),
@@ -460,6 +484,7 @@ def parse_args():
     parser.add_argument(
         "--show-samples", dest="show_samples", action="store_true", help="Display unormalized training samples"
     )
+    parser.add_argument("--words_txt_path", help="The text file contains the words to prepare dataset from.")
     parser.add_argument("--wb", dest="wb", action="store_true", help="Log to Weights & Biases")
     parser.add_argument("--push-to-hub", dest="push_to_hub", action="store_true", help="Push to Huggingface Hub")
     parser.add_argument(
@@ -471,6 +496,8 @@ def parse_args():
     parser.add_argument("--sched", type=str, default="cosine", help="scheduler to use")
     parser.add_argument("--amp", dest="amp", help="Use Automatic Mixed Precision", action="store_true")
     parser.add_argument("--find-lr", action="store_true", help="Gridsearch the optimal LR")
+    parser.add_argument("--save_samples_root", help="saves samples as images")
+
     args = parser.parse_args()
 
     return args
