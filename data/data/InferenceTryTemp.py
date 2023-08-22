@@ -3,8 +3,8 @@ from doctr.models import ocr_predictor
 import cv2
 from doctr.io import DocumentFile
 
-
-model = ocr_predictor(reco_arch="crnn_vgg16_bn_diacritics", straighten_pages=True, pretrained=True)
+#reco_arch="crnn_vgg16_bn_diacritics"
+model = ocr_predictor( pretrained=True)
 # PDF
 #doc = read_image(path_to_image)
 path="/home/venkat/workspace/sanskritdiacritics-doctr/data/data/inputImgs/CSSVolume1/1_49_a.png"
@@ -15,5 +15,5 @@ path="/home/venkat/workspace/sanskritdiacritics-doctr/data/data/inputImgs/CSSVol
 imgAsimage = DocumentFile.from_images(path)
 
 result = model(imgAsimage)
-result.show(imgAsimage)
+#result.show(imgAsimage)
 print(result)

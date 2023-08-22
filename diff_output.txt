@@ -1,304 +1,2056 @@
-diff --git a/doctr/datasets/generator/base.py b/doctr/datasets/generator/base.py
-index 4046559..6412587 100644
---- a/doctr/datasets/generator/base.py
-+++ b/doctr/datasets/generator/base.py
-@@ -3,7 +3,7 @@
- # This program is licensed under the Apache License 2.0.
- # See LICENSE or go to <https://opensource.org/licenses/Apache-2.0> for full license details.
- 
--import random
-+import random, os, time
- from typing import Any, Callable, List, Optional, Tuple, Union
- 
- from PIL import Image, ImageDraw
-@@ -109,6 +109,8 @@ class _WordGenerator(AbstractDataset):
-         max_chars: int,
-         num_samples: int,
-         cache_samples: bool = False,
-+        words_txt_path: Optional[str] = None,
-+        save_samples_root: Optional[str] = None,
-         font_family: Optional[Union[str, List[str]]] = None,
-         img_transforms: Optional[Callable[[Any], Any]] = None,
-         sample_transforms: Optional[Callable[[Any, Any], Tuple[Any, Any]]] = None,
-@@ -126,6 +128,25 @@ class _WordGenerator(AbstractDataset):
-                     raise ValueError(f"unable to locate font: {font}")
-         self.img_transforms = img_transforms
-         self.sample_transforms = sample_transforms
-+        self.words_txt_path = words_txt_path
-+        self.words_txt_file_contents = None
-+
-+        self.save_samples_root = save_samples_root
-+        if self.save_samples_root:
-+            os.makedirs(os.path.join(self.save_samples_root,"images"))
-+
-+        if words_txt_path:
-+            try:
-+                with open(words_txt_path, "r", encoding="utf-8") as file:
-+                    self.words_txt_file_contents = file.readlines()
-+            except FileNotFoundError:
-+                self.words_txt_file_contents = None
-+                print(f"File not found: {word_txt_path}")
-+            except Exception as e:
-+                self.words_txt_file_contents = None
-+                print(f"An error occurred: {e}")
-+
-+        #print("self.words_txt_file_contents",type(self.words_txt_file_contents),len(self.words_txt_file_contents),self.words_txt_file_contents[10000:10001])
- 
-         self._data: List[Image.Image] = []
-         if cache_samples:
-@@ -133,8 +154,25 @@ class _WordGenerator(AbstractDataset):
-             self._data = [
-                 (synthesize_text_img(text, font_family=random.choice(self.font_family)), text) for text in _words
-             ]
-+        self.counter = 0
- 
-     def _generate_string(self, min_chars: int, max_chars: int) -> str:
-+        
-+        if self.words_txt_file_contents:
-+            #print("self.words_txt_file_contents",self.words_txt_file_contents)
-+            #words_list = open(self.words_txt_path, "r", encoding="utf-8").readlines()
-+            #print(random.choice(words_list),type(random.choice(words_list)))
-+            word=""
-+            while (1):
-+                word=random.choice(self.words_txt_file_contents).rstrip("\n")
-+                if len(word)>12:
-+                    continue
-+                else:
-+                    break
-+            
-+            return word
-+
-+            
-         num_chars = random.randint(min_chars, max_chars)
-         return "".join(random.choice(self.vocab) for _ in range(num_chars))
- 
-@@ -148,6 +186,10 @@ class _WordGenerator(AbstractDataset):
-         else:
-             target = self._generate_string(*self.wordlen_range)
-             pil_img = synthesize_text_img(target, font_family=random.choice(self.font_family))
-+        if self.save_samples_root:
-+            img_name = str(self.counter)+".png"
-+            pil_img.save(os.path.join(self.save_samples_root,"images",img_name))
-+            self.counter += 1
-         img = tensor_from_pil(pil_img)
- 
-         return img, target
-diff --git a/doctr/datasets/vocabs.py b/doctr/datasets/vocabs.py
-index 1a88a6e..3ae0d59 100644
---- a/doctr/datasets/vocabs.py
-+++ b/doctr/datasets/vocabs.py
-@@ -20,12 +20,37 @@ VOCABS: Dict[str, str] = {
-     "hindi_digits": "٠١٢٣٤٥٦٧٨٩",
-     "arabic_diacritics": "ًٌٍَُِّْ",
-     "arabic_punctuation": "؟؛«»—",
-+    "sanskrit_unicode": "ऀँंःऄअआइईउऊऋऌऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसहऺऻ़ऽािीुूृॄॅॆेैॉॊोौ्ॎॏॐ॒॑॓क़ख़ग़ज़ड़ढ़फ़य़ॠॢॣ।॥०१२३४५६७८९॰ॱॲॳॴॵॶॷॸॹॺॻॼॽॾॿ",
-+    "sanskrit_numerals": "१२३४५६७८९०",
-+    "sanskrit_alphabets":"अआइईउऊएऐओऔअंअँअःआःआंआँइःइंइँईःईंउःउँउंऊःऊँऊंएःएँएंऐःऐंओःओंऔःऔंऋकखगघङचछजझञटठडढणतथदधनपफबभमयरलवसशषहक्षत्रज्ञकाकिकीकुकूक्रर्ककृकोकौकेकैकंक़कॉकःकखाखिखीखुखूखेखैख्रर्खख़खॉखंखृखोखौखःगागिगीगुगूगेगैगोगौगृग्रर्गगॉग़गंगःघौघैघाघीघूघ़घॉघृघोघेघिघुघंघॅघःघँघङृङौङैङाङीङूङङॉङोङेङ्ङिङुङंङ्रङॅङँचृचौचैचाचीचूच़चॉचोचेचिचुचंच्रचॅचँर्चचःछृछौछैछाछीछूछ़छॉछोछेछिछुछंछॅछ्रर्छछँछःजृजौजैजाजीजूज़जॉजोजेजिजुजंजॅज्रर्जजँजःझृझौझैझाझीझूझ़झॉझोझेझिझुझंझॅझ्रझःर्झझँञःञॉञंञँटृटौटैटाटीटूट़टॉटोटेटिटुटंटॅट्रर्टटःटँठृठौठैठाठीठूठ़ठॉठोठेठिठुठंठॅठ्रठःर्ठठँडृडौडैडाडीडूडॉडोडेडिडुडंडॅड्रडःर्डडँढृढौढैढाढीढूढ़ढॉढोढेढिढुढंढॅढ्रढःढँणृणौणैणाणीणूणॉणोणेणिणुणंणॅण्रणःणँर्णतृतौतैतातीतूत़तॉतोतेतितुतंतॅत्रतःततँर्तथृथौथैथाथीथूथ़थॉथोथेथिथुथंथॅथ्रथःथँर्थदृदौदैदादीदूद़दॉदोदेदिदुदंदॅद्रदःदँर्दधृधौधैधाधीधूध़धॉधोधेधिधुधंधॅध्रधःधँर्धनौनैनानीनूनृनोनेनिनुनंनॅन्रनःनँनॉऩपृपौपैपापीपूप़पॉपोपेपिपुपंपॅप्रपःर्पपँफृफौफैफाफीफूफ़फॉफोफेफिफुफंफॅफ्रफःफँँर्फबृबौबाबीबूब़बॉबोबेबिबुबंबॅब्रबःर्बबँभृभौभैभाभीभूभ़भॉभोभेभिभुभंभॅभ्रभःभँर्भमृमौमैमामीमूम़मॉमोमेमिमुमंमॅम्रमःमँर्मयृयौयैयायीयूय़यॉयोयेयियुयंयॅय्रयःयँर्यरृरौरैरारीरूऱरॉरोरेरिरुरंरॅर्ररःरँलृलौलैलालीलूल़लॉलोलेलिलुलंलॅल्रलःलँर्लवृवौवैवावीवूव़वॉवोवेविवुवंवॅव्रवःवँर्वसृसौसैसासीसूस़सॉसोसेसिसुससंसॅस्रसःसँर्सशृशौशैशाशीशूश़शॉशोशेशिशुशंशॅश्रशःशँर्शषृषौषैषाषीषूष़षॉषोषेषिषुषंषॅष्रषःर्षषँहृहौहैहाहीहूह़हॉहोहेहिहुहंहॅह्रहःहँर्हश्रृश्रौश्रैश्राश्रीश्रूश्रॉश्रोश्रेश्रिश्रुश्रंश्रॅश्रःश्रँर्श्रक्षृक्षौक्षैक्षाक्षीक्षूक्ष़क्षॉक्षोक्षेक्षिक्षुक्षंक्षॅक्ष्रक्षःक्षँर्क्षत्रृत्रौत्रैत्रात्रीत्रूत्ऱत्रॉत्रोत्रेत्रित्रुत्रंत्रॅत्रःत्रँर्त्रळः",
-+    
-+    "sanskrit_transliterated": "'(-0123456789:A[abcdeghijklmnoprstuvy|ñāēīōśū̥̄̐।॥ḍḥṁṃṅṇṛṣṭ" #.\u200c\u200d",
-+
- }
- 
--VOCABS["latin"] = VOCABS["digits"] + VOCABS["ascii_letters"] + VOCABS["punctuation"]
-+VOCABS['bengali'] = 'শ০ূৃৰজআঔঅঊিঢ়খ৵পঢই৳ফঽ৪লেঐযঃঈঠুধড়৲ৄথভটঁঋৱরডৢছ৴ঙওঘস১৹ণগ৷৩ত৮হ৭োষৎ৶কন৬চমৈা়ীৠঝএ৻ব৯য়উৌঞ৺২ংৣদ৫্ৗ-।'
-+VOCABS['gujarati'] = '૮લઔ૨સખાઑઈઋૐઓવૄ૦઼ઁનઞઊ૫ીશફણ૬૭બ૧રળૌુઠઐઉષપેઇઅૃઝજૉક૱૯ગઍદો૪ૅએંહડઘ૩ૂછઙઃઽટતધિૈયઢ્આમથચભ-'
-+VOCABS['gurumukhi'] = 'ਗ਼ਵਨਁਰਊਖਂਆਜੈਲੴਣ੧ਛਭਫ੮੯ਚਔੀਯਹਲ਼ਞ੩ੜਫ਼ੁਮ੫ਤੇਦਸ਼ਟੰ੭ਓਅਃਡਾਉਠੱਈ੦ੵਖ਼ਏਕਥ੬ਧੲੑਝਿ੨ਐਬਪਘਸ਼ਙੌਜ਼ੋਗ੍ੳਇ੪ੂਢ-।'
-+VOCABS['kannada'] = 'ಚೕಒಉೖಂಲಾಝಟೆಅ೬ೇ೨ಬಡವಜಢಞಔಏಧಶಭತಳೀಕಐಈಠಪ೫ಣ೮ೞಆಯುಗೢಋದಘೂ್ೈ೦ಓಱಃಹ೯ೋಮ೭ೠಥಖಫಇರ೪ಛಙೣಿ೩ೌೄಷಌಸನ಼ಊಎ೧ೃೊ-'
-+VOCABS['malayalam'] = '൪ഉ൮ള൵ഔംസഞഎഷ൫ൄൌ-ഃൈീഌഛഇണാഈഹധ൭ജച൱൴൹യതൻശഒ൯ഗർഊആവഖൠൣ൩ോൽ൧അ൳ൗപഭൃ്മെഐൡഓദഏറിഠരൺ൰ൾങട൦ഢൢഡലേഴഝൊ൲ബനൂഥൿഘഫുഋക൬൨ '
-+VOCABS['odia'] = 'ଖ୯୬ୋଓଞ୍ଶ୪ଣଥଚରୄତଃେ୮ଆକଵୂନଦ୰ୖୢଜଉଳଅଁଲଯଔପ୭ଷଢଡ଼ଊୟମିୁ୧ଂ଼ୀବଟଭଢ଼୦ଘଠୗ୫ୡାଐ୨ଙହଈୱ୩ୃଛଏୌଗଫସଇଧଡଝୈୣୠଋ-।'
-+VOCABS['tamil'] = 'ய௴ஷ௫ைெஸஎஈோவ௲ூு௭அ்ஶி௰ஹ௧ௐா௮ஔ௺சீண௩இனஆழ௪௯ஙஊதஜ௷௶மௌள௸ஐபநேற௬டஒ௹ஞஉஏகௗொர௱௵ஃ௨லஓ௳௦-'
-+VOCABS['telugu'] = '౦ఱకఆఋడత౯౻ిహౌ౭౽ఉ౮్ధఓగ౼మ౫ూౠఔాఇనైఁజీౄుేసశృఃఝఢరఠలోఞౘఅ౹౧ౢఛబ౸ఐయ౩ఖటచెొఊదఈషథభఏౙ౬౾ఎ౪ణఒప౨ఫంఘఙళవ౺-'
-+VOCABS['urdu'] = 'ٱيأۃدےش‘زعكئںسحٰنؐةقذ؟ؔ۔—ًمھٗپغٖطإؒرڑصټٍگاؤجضْﷺچ‎ۓِّؓٹظىتڈ‍یُه،خو؛آفبؑلہثﺅ‌ژَۂءک‏'
-+
-+
-+
-+VOCABS['hindi'] = 'ॲऽऐथफएऎह८॥ॉम९ुँ१ं।षघठर॓ॼड़गछिॱटऩॄऑवल५ढ़य़अञसऔयण॑क़॒ौॽशऍ॰ूीऒॊख़उज़ॻॅ३ओऌळनॠ०ेढङ४़ॢग़पऊॐज२डैभझकआदबऋखॾ॔ोइ्धतफ़ईृःा६चऱऴ७-'
-+VOCABS['sanskrit']='ज़ऋुड़ऍऐक५टय४उः३ॠध९्७ू१वऌौॐॡॢइ६ाै८नृअंथढेखऔघग़०लजोईरञपफँझभषॅॄगतचहसीढ़आशए।म२दठङबिऊडओळछण़ऽ'
-+VOCABS['devanagari'] = 'रचख़३ॾऍृेञलॻॉऴषॐॢ१य०ॽएा२ई।ग़७टऐय़॥तोदऽभुनओऒ-ठँ.ौ्८ॼझॠविःक़ी॰छॅॊऩऱ़थजशळङअऋखबफउ५फ़६ऊॲॆज़कढ़मूस॓इऔह॑ैगढॣधआड़९ं४डणपॄघऑ'
-+VOCABS["latin"] = (
-+    VOCABS["digits"] 
-+    + VOCABS["ascii_letters"] 
-+    + VOCABS["punctuation"]
-+    )
- VOCABS["english"] = VOCABS["latin"] + "°" + VOCABS["currency"]
--VOCABS["legacy_french"] = VOCABS["latin"] + "°" + "àâéèêëîïôùûçÀÂÉÈËÎÏÔÙÛÇ" + VOCABS["currency"]
--VOCABS["french"] = VOCABS["english"] + "àâéèêëîïôùûüçÀÂÉÈÊËÎÏÔÙÛÜÇ"
-+VOCABS["legacy_french"] = VOCABS["latin"] + "°" + "àâéèêëîïôùûçÀÂÉÈËÎÏÔÙÛÇ" + 'oQॐ∗}̭≥Ñࢇu–ा1\'°9śা२+hजষअॣ∘V̤औw`(तū$ऋऐौषचऩ३Cघ[িk”छपs∓aे…‍उOeऽl)य़⊤थḹ⌊র९१ठऱপটṣṃ:g“q!yলय~ल|◌p̂]PTকसz&Uैṝॊ—ẏबখṛळआ×ँ॰’ी॑Kdग०ड़ॄZ६F−ġहṟ4{द̇ऌॡ≤⋆Sᳳ∴\bखবॅ्⌋.>झढ़0ò॥ṭ∵∿एīঃ8?वुङ-IिBiশrnm͟ज़HृW2xYন%७ट6Xॉढ/भ‑=fःधṇṅ‌A∼Rvञ४7ॠ5èুম∾Mḍशइ८D𝜁ऎ÷,ोण;मू†Lস3कडḥjॢEñ∙∻∽GJী५फṉcā*‘़∮ḷ"रऊ<্॒न_√tई।∠ओ' + VOCABS["currency"] #+ VOCABS["sanskrit_transliterated"]
-+VOCABS["french"] = VOCABS["english"] + "'(-.0123456789:A[abcdeghijklmnoprstuvy|ñāēīōśū̥̄̐।॥ḍḥṁṃṅṇṛṣṭ\u200c\u200d" #"àâéèêëîïôùûüçÀÂÉÈÊËÎÏÔÙÛÜÇ"
- VOCABS["portuguese"] = VOCABS["english"] + "áàâãéêíïóôõúüçÁÀÂÃÉÊÍÏÓÔÕÚÜÇ"
- VOCABS["spanish"] = VOCABS["english"] + "áéíóúüñÁÉÍÓÚÜÑ" + "¡¿"
- VOCABS["german"] = VOCABS["english"] + "äöüßÄÖÜẞ"
-@@ -44,3 +69,21 @@ VOCABS["vietnamese"] = (
-     + "áàảạãăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệóòỏõọôốồổộỗơớờởợỡúùủũụưứừửữựiíìỉĩịýỳỷỹỵ"
-     + "ÁÀẢẠÃĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÓÒỎÕỌÔỐỒỔỘỖƠỚỜỞỢỠÚÙỦŨỤƯỨỪỬỮỰIÍÌỈĨỊÝỲỶỸỴ"
- )
-+VOCABS["transliterated"] = (
-+    VOCABS["english"]
-+    + VOCABS["sanskrit_transliterated"]
-+    )
-+
-+
-+VOCABS["diacritics_training"] = (
-+    VOCABS["english"]
-+     + VOCABS["sanskrit_transliterated"]
-+    #+VOCABS["devanagari"]
-+     #  +VOCABS["sanskrit_unicode"]
-+
-+    )
-+
-+#print("\n\n\n")
-+print(VOCABS["diacritics_training"])
-+#print("\n\n\n")
-+
-diff --git a/doctr/models/recognition/crnn/pytorch.py b/doctr/models/recognition/crnn/pytorch.py
-index b1e50f1..8aaafac 100644
---- a/doctr/models/recognition/crnn/pytorch.py
-+++ b/doctr/models/recognition/crnn/pytorch.py
-@@ -17,9 +17,17 @@ from ...classification import mobilenet_v3_large_r, mobilenet_v3_small_r, vgg16_
- from ...utils.pytorch import load_pretrained_params
- from ..core import RecognitionModel, RecognitionPostProcessor
- 
--__all__ = ["CRNN", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
-+__all__ = ["CRNN","crnn_vgg16_bn_diacritics", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
- 
- default_cfgs: Dict[str, Dict[str, Any]] = {
-+    "crnn_vgg16_bn_diacritics": {
-+        "mean": (0.694, 0.695, 0.693),
-+        "std": (0.299, 0.296, 0.301),
-+        "input_shape": (3, 32, 128),
-+        "vocab": VOCABS["diacritics_training"],
-+        #"url": "https://doctr-static.mindee.com/models?id=v0.3.1/crnn_vgg16_bn-9762b0b0.pt&src=0",
-+        "url":"https://github.com/navaneeth031/navindicDocTRforSansDiacritics/releases/download/Model-IASTENG/crnn_vgg16_bn_diacritics_20230815-145907_0.00003_IASTand.Eng_v1.pt",
-+    },
-     "crnn_vgg16_bn": {
-         "mean": (0.694, 0.695, 0.693),
-         "std": (0.299, 0.296, 0.301),
-@@ -330,3 +338,7 @@ def crnn_mobilenet_v3_large(pretrained: bool = False, **kwargs: Any) -> CRNN:
-         ignore_keys=["linear.weight", "linear.bias"],
-         **kwargs,
-     )
-+
-+def crnn_vgg16_bn_diacritics(pretrained: bool = False, **kwargs: Any) -> CRNN:
-+    #pretrained_backbone=False -- add this for training 
-+    return _crnn("crnn_vgg16_bn_diacritics", pretrained, vgg16_bn_r, ignore_keys=["linear.weight", "linear.bias"], **kwargs)
-\ No newline at end of file
-diff --git a/doctr/models/recognition/zoo.py b/doctr/models/recognition/zoo.py
-index 74f5c40..c87c300 100644
---- a/doctr/models/recognition/zoo.py
-+++ b/doctr/models/recognition/zoo.py
-@@ -15,6 +15,7 @@ __all__ = ["recognition_predictor"]
- 
- 
- ARCHS: List[str] = [
-+    "crnn_vgg16_bn_diacritics",
-     "crnn_vgg16_bn",
-     "crnn_mobilenet_v3_small",
-     "crnn_mobilenet_v3_large",
-diff --git a/references/recognition/README.md b/references/recognition/README.md
-index 5fa5510..57e41fd 100644
---- a/references/recognition/README.md
-+++ b/references/recognition/README.md
-@@ -97,3 +97,14 @@ Running the training script should look like this for multiple custom fonts:
- ```shell
- python references/recognition/train_pytorch.py crnn_vgg16_bn --epochs 5 --font "custom-font-1.ttf,custom-font-2.ttf"
- ```
-+
-+##########################################################################
-+Local guidelines pertaining to the current workspace.
-+
-+Training command (working as of 10,aug,23):
-+
-+python references/recognition/train_pytorch.py crnn_vgg16_bn_diacritics --epochs 2 --device 1 --font DejaVuSans-Bold.ttf -b 512 --vocab diacritics_training --input_size 64
-+
-+Training command (training completed --crnn_vgg16_bn_diacritics_20230811-020435-200e.pt):
-+
-+python references/recognition/train_pytorch.py crnn_vgg16_bn_diacritics --epochs 200 --device 1 --font /home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Arial.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Cardo104s.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/DejaVuSans.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/EBGaramond12-Regular.otf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Georgia.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Lato-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Quicksand-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Times_New_Roman.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/eng/Verdana.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/Carlito-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/CharisSIL-R.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/NotoSans-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/OpenSans-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/chandas.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Lohit-Devanagari.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/NotoSansDevanagari-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Poppins-Regular.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Sanskrit2003.ttf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/Shobhika-Regular.otf,/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/devanagari/uttara.ttf -b 1024 --vocab diacritics_training --input_size 32
-diff --git a/references/recognition/train_pytorch.py b/references/recognition/train_pytorch.py
-index c419571..c2a5144 100644
---- a/references/recognition/train_pytorch.py
-+++ b/references/recognition/train_pytorch.py
-@@ -12,6 +12,7 @@ import hashlib
- import logging
- import multiprocessing as mp
- import time
-+import json
- from pathlib import Path
- 
- import numpy as np
-@@ -151,6 +152,8 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
-     val_metric.reset()
-     # Validation loop
-     val_loss, batch_cnt = 0, 0
-+    predictionsForSavingResult = []
-+
-     for images, targets in val_loader:
-         if torch.cuda.is_available():
-             images = images.cuda()
-@@ -160,6 +163,19 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
-                 out = model(images, targets, return_preds=True)
-         else:
-             out = model(images, targets, return_preds=True)
-+
-+        #print("\n\nout: ",out["loss"])
-+        #print("\n\nlen(targets): ",targets[0:10])
-+
-+        #break
-+
-+        d = {}
-+        for eleIndex in range(0,len(out['preds'])):
-+            d['pred'] = out['preds'][eleIndex]
-+            d['actual'] = targets[eleIndex]
-+
-+            predictionsForSavingResult.append(d)
-+        
-         # Compute metric
-         if len(out["preds"]):
-             words, _ = zip(*out["preds"])
-@@ -170,6 +186,10 @@ def evaluate(model, val_loader, batch_transforms, val_metric, amp=False):
-         val_loss += out["loss"].item()
-         batch_cnt += 1
- 
-+    print("length of predictionsForSavingResult",len(predictionsForSavingResult))
-+    with open("/home/venkat/workspace/sanskritdiacritics-doctr/data/data/results.json", "w") as myfinalresultfile:
-+        json.dump(predictionsForSavingResult, myfinalresultfile, indent=4, ensure_ascii=False)
-+
-     val_loss /= batch_cnt
-     result = val_metric.summary()
-     return val_loss, result["raw"], result["unicase"]
-@@ -208,7 +228,9 @@ def main(args):
-             min_chars=args.min_chars,
-             max_chars=args.max_chars,
-             num_samples=args.val_samples * len(vocab),
-+            words_txt_path=args.words_txt_path,
-             font_family=fonts,
-+            save_samples_root = args.save_samples_root,
-             img_transforms=Compose(
-                 [
-                     T.Resize((args.input_size, 4 * args.input_size), preserve_aspect_ratio=True),
-@@ -307,7 +329,9 @@ def main(args):
-             min_chars=args.min_chars,
-             max_chars=args.max_chars,
-             num_samples=args.train_samples * len(vocab),
-+            words_txt_path=args.words_txt_path,
-             font_family=fonts,
-+            save_samples_root=None,
-             img_transforms=Compose(
-                 [
-                     T.Resize((args.input_size, 4 * args.input_size), preserve_aspect_ratio=True),
-@@ -460,6 +484,7 @@ def parse_args():
-     parser.add_argument(
-         "--show-samples", dest="show_samples", action="store_true", help="Display unormalized training samples"
-     )
-+    parser.add_argument("--words_txt_path", help="The text file contains the words to prepare dataset from.")
-     parser.add_argument("--wb", dest="wb", action="store_true", help="Log to Weights & Biases")
-     parser.add_argument("--push-to-hub", dest="push_to_hub", action="store_true", help="Push to Huggingface Hub")
-     parser.add_argument(
-@@ -471,6 +496,8 @@ def parse_args():
-     parser.add_argument("--sched", type=str, default="cosine", help="scheduler to use")
-     parser.add_argument("--amp", dest="amp", help="Use Automatic Mixed Precision", action="store_true")
-     parser.add_argument("--find-lr", action="store_true", help="Gridsearch the optimal LR")
-+    parser.add_argument("--save_samples_root", help="saves samples as images")
-+
-     args = parser.parse_args()
- 
-     return args
+data/data/InferenceTryTemp.py
+data/data/combined_diatrics_input.txt
+data/data/combined_diatrics_input_DevanagariSanskritCompliant.txt
+data/data/combined_diatrics_input_EngAndDevanagariSanskritCompliant.txt
+data/data/combined_diatrics_input_EngAndIASTcompliant.txt
+data/data/combined_diatrics_input_EngAndIASTcompliant_test.txt
+data/data/combined_diatrics_input_EngAndIASTcompliant_train.txt
+data/data/combined_diatrics_input_EngCompliant.txt
+data/data/combined_diatrics_input_IASTAndDevanagariSanskritCompliant.txt
+data/data/combined_diatrics_input_IASTEng_Test.txt
+data/data/combined_diatrics_input_IASTcompliant.txt
+data/data/combined_diatrics_input_vocabNonComp.txt
+data/data/combined_diatrics_input_vocabcompliant.txt
+data/data/doctrdetectionandPrediction.py
+data/data/inference.py
+data/data/inputImgs/CSSVolume1/1_45_a.png
+data/data/inputImgs/CSSVolume1/1_45_b.png
+data/data/inputImgs/CSSVolume1/1_46_a.png
+data/data/inputImgs/CSSVolume1/1_46_b.png
+data/data/inputImgs/CSSVolume1/1_47_a.png
+data/data/inputImgs/CSSVolume1/1_47_b.png
+data/data/inputImgs/CSSVolume1/1_48_a.png
+data/data/inputImgs/CSSVolume1/1_48_b.png
+data/data/inputImgs/CSSVolume1/1_49_a.png
+data/data/inputImgs/CSSVolume1/1_49_b.png
+data/data/inputImgs/CSSVolume1/1_50_a.png
+data/data/inputImgs/CSSVolume1/1_50_b.png
+data/data/inputImgs/CSSVolume1/1_51_a.png
+data/data/inputImgs/CSSVolume1/1_51_b.png
+data/data/inputImgs/CSSVolume1/1_52_a.png
+data/data/inputImgs/CSSVolume1/1_52_b.png
+data/data/inputImgs/CSSVolume1/1_53_a.png
+data/data/inputImgs/CSSVolume1/1_53_b.png
+data/data/inputImgs/CSSVolume1/1_54_a.png
+data/data/inputImgs/CSSVolume1/1_54_b.png
+data/data/inputImgs/CSSVolume1/1_55_a.png
+data/data/inputImgs/CSSVolume1/1_55_b.png
+data/data/inputImgs/CSSVolume1/1_56_a.png
+data/data/inputImgs/CSSVolume1/1_56_b.png
+data/data/inputImgs/CSSVolume1/1_57_a.png
+data/data/inputImgs/CSSVolume1/1_57_b.png
+data/data/inputImgs/CSSVolume1/1_58_a.png
+data/data/inputImgs/CSSVolume1/1_58_b.png
+data/data/inputImgs/CSSVolume1/1_59_a.png
+data/data/inputImgs/CSSVolume1/1_59_b.png
+data/data/inputImgs/CSSVolume1/1_60_a.png
+data/data/inputImgs/CSSVolume1/1_60_b.png
+data/data/inputImgs/CSSVolume1/1_61_a.png
+data/data/inputImgs/CSSVolume1/1_61_b.png
+data/data/inputImgs/CSSVolume1/1_62_a.png
+data/data/inputImgs/CSSVolume1/1_62_b.png
+data/data/inputImgs/CSSVolume1/1_63_a.png
+data/data/inputImgs/CSSVolume1/1_63_b.png
+data/data/inputImgs/CSSVolume1/1_64_a.png
+data/data/inputImgs/CSSVolume1/1_64_b.png
+data/data/inputImgs/CSSVolume1/1_65_a.png
+data/data/inputImgs/CSSVolume1/1_65_b.png
+data/data/inputImgs/CSSVolume1/1_66_a.png
+data/data/inputImgs/CSSVolume1/1_66_b.png
+data/data/inputImgs/CSSVolume1/1_67_a.png
+data/data/inputImgs/CSSVolume1/1_67_b.png
+data/data/inputImgs/CSSVolume1/1_68_a.png
+data/data/inputImgs/CSSVolume1/1_68_b.png
+data/data/inputImgs/CSSVolume1/1_69_a.png
+data/data/inputImgs/CSSVolume1/1_69_b.png
+data/data/inputImgs/CSSVolume1/1_70_a.png
+data/data/inputImgs/CSSVolume1/1_70_b.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/1_45_a.png_output.txt
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/1_45_a.pngbox.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word0.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word1.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word10.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word100.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word101.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word102.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word103.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word104.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word105.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word106.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word107.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word108.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word109.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word11.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word110.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word111.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word112.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word113.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word114.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word115.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word116.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word117.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word118.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word119.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word12.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word120.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word121.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word122.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word123.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word124.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word125.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word126.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word127.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word128.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word129.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word13.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word130.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word131.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word132.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word133.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word134.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word135.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word136.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word137.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word138.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word139.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word14.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word140.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word141.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word142.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word143.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word144.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word145.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word146.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word147.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word148.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word149.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word15.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word150.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word151.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word152.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word153.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word154.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word155.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word156.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word157.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word158.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word159.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word16.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word160.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word161.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word162.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word163.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word164.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word165.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word166.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word167.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word168.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word169.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word17.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word170.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word171.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word172.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word173.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word174.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word175.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word176.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word177.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word178.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word179.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word18.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word180.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word181.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word182.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word183.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word184.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word185.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word186.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word187.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word188.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word189.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word19.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word190.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word191.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word192.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word193.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word194.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word195.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word196.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word197.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word198.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word199.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word2.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word20.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word200.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word201.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word202.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word203.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word204.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word205.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word206.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word207.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word208.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word209.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word21.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word210.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word211.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word212.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word213.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word214.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word215.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word216.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word217.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word218.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word219.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word22.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word220.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word221.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word222.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word223.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word224.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word225.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word226.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word227.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word228.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word229.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word23.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word230.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word231.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word232.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word233.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word234.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word235.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word236.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word237.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word238.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word239.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word24.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word240.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word241.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word242.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word243.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word244.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word245.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word246.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word247.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word248.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word249.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word25.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word250.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word251.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word252.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word253.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word254.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word255.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word256.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word257.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word258.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word259.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word26.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word260.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word261.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word262.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word263.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word264.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word265.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word266.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word267.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word268.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word269.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word27.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word270.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word271.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word272.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word273.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word274.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word275.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word276.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word277.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word278.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word279.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word28.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word280.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word281.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word282.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word283.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word284.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word285.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word286.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word287.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word288.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word289.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word29.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word290.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word291.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word292.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word293.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word294.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word295.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word296.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word297.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word298.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word299.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word3.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word30.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word300.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word301.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word302.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word303.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word304.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word305.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word306.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word307.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word308.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word309.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word31.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word310.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word311.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word312.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word313.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word314.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word315.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word316.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word317.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word318.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word319.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word32.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word320.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word321.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word322.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word323.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word324.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word325.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word326.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word327.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word328.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word329.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word33.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word330.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word331.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word332.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word333.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word334.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word335.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word336.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word337.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word338.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word339.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word34.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word340.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word341.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word342.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word343.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word344.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word345.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word346.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word347.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word348.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word349.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word35.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word350.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word351.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word352.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word353.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word354.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word355.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word356.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word357.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word358.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word359.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word36.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word360.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word361.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word362.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word363.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word364.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word365.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word366.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word367.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word368.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word369.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word37.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word370.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word371.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word372.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word373.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word374.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word375.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word376.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word377.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word378.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word379.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word38.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word380.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word381.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word382.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word383.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word384.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word385.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word386.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word387.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word388.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word389.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word39.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word390.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word391.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word4.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word40.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word41.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word42.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word43.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word44.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word45.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word46.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word47.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word48.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word49.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word5.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word50.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word51.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word52.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word53.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word54.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word55.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word56.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word57.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word58.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word59.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word6.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word60.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word61.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word62.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word63.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word64.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word65.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word66.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word67.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word68.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word69.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word7.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word70.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word71.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word72.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word73.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word74.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word75.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word76.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word77.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word78.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word79.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word8.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word80.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word81.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word82.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word83.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word84.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word85.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word86.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word87.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word88.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word89.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word9.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word90.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word91.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word92.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word93.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word94.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word95.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word96.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word97.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word98.png
+data/data/inputImgs/CSSVolume1/results/1_45_a.png/word99.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/1_45_b.png_output.txt
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/1_45_b.pngbox.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word0.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word1.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word10.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word100.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word101.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word102.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word103.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word104.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word105.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word106.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word107.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word108.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word109.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word11.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word110.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word111.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word112.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word113.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word114.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word115.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word116.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word117.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word118.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word119.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word12.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word120.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word121.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word122.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word123.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word124.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word125.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word126.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word127.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word128.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word129.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word13.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word130.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word131.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word132.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word133.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word134.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word135.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word136.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word137.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word138.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word139.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word14.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word140.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word141.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word142.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word143.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word144.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word145.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word146.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word147.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word148.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word149.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word15.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word150.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word151.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word152.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word153.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word154.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word155.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word156.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word157.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word158.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word159.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word16.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word160.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word161.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word162.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word163.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word164.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word165.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word166.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word167.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word168.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word169.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word17.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word170.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word171.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word172.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word173.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word174.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word175.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word176.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word177.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word178.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word179.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word18.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word180.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word181.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word182.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word183.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word184.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word185.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word186.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word187.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word188.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word189.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word19.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word190.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word191.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word192.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word193.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word194.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word195.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word196.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word197.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word198.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word199.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word2.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word20.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word200.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word201.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word202.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word203.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word204.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word205.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word206.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word207.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word208.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word209.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word21.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word210.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word211.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word212.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word213.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word214.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word215.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word216.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word217.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word218.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word219.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word22.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word220.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word221.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word222.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word223.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word224.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word225.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word226.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word227.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word228.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word229.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word23.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word230.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word231.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word232.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word233.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word234.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word235.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word236.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word237.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word238.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word239.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word24.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word240.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word241.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word242.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word243.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word244.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word245.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word246.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word247.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word248.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word249.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word25.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word250.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word251.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word252.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word253.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word254.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word255.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word256.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word257.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word258.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word259.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word26.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word260.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word261.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word262.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word263.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word264.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word265.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word266.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word267.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word268.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word269.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word27.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word270.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word271.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word272.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word273.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word274.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word275.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word276.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word277.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word278.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word279.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word28.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word280.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word281.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word282.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word283.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word284.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word285.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word286.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word287.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word288.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word289.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word29.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word290.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word291.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word292.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word293.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word294.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word295.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word296.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word297.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word298.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word299.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word3.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word30.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word300.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word301.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word302.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word303.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word304.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word305.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word306.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word307.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word308.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word309.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word31.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word310.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word311.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word312.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word313.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word314.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word315.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word316.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word317.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word318.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word319.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word32.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word320.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word321.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word322.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word323.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word324.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word325.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word326.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word33.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word34.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word35.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word36.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word37.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word38.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word39.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word4.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word40.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word41.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word42.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word43.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word44.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word45.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word46.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word47.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word48.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word49.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word5.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word50.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word51.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word52.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word53.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word54.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word55.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word56.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word57.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word58.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word59.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word6.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word60.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word61.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word62.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word63.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word64.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word65.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word66.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word67.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word68.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word69.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word7.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word70.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word71.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word72.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word73.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word74.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word75.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word76.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word77.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word78.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word79.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word8.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word80.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word81.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word82.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word83.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word84.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word85.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word86.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word87.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word88.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word89.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word9.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word90.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word91.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word92.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word93.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word94.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word95.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word96.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word97.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word98.png
+data/data/inputImgs/CSSVolume1/results/1_45_b.png/word99.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/1_46_a.png_output.txt
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/1_46_a.pngbox.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word0.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word1.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word10.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word100.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word101.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word102.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word103.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word104.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word105.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word106.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word107.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word108.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word109.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word11.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word110.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word111.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word112.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word113.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word114.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word115.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word116.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word117.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word118.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word119.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word12.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word120.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word121.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word122.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word123.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word124.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word125.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word126.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word127.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word128.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word129.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word13.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word130.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word131.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word132.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word133.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word134.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word135.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word136.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word137.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word138.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word139.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word14.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word140.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word141.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word142.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word143.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word144.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word145.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word146.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word147.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word148.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word149.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word15.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word150.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word151.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word152.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word153.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word154.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word155.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word156.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word157.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word158.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word159.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word16.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word160.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word161.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word162.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word163.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word164.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word165.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word166.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word167.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word168.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word169.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word17.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word170.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word171.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word172.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word173.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word174.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word175.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word176.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word177.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word178.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word179.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word18.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word180.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word181.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word182.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word183.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word184.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word185.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word186.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word187.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word188.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word189.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word19.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word190.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word191.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word192.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word193.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word194.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word195.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word196.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word197.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word198.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word199.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word2.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word20.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word200.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word201.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word202.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word203.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word204.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word205.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word206.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word207.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word208.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word209.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word21.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word210.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word211.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word212.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word213.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word214.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word215.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word216.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word217.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word218.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word219.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word22.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word220.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word221.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word222.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word223.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word224.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word225.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word226.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word227.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word228.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word229.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word23.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word230.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word231.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word232.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word233.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word234.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word235.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word236.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word237.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word238.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word239.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word24.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word240.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word241.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word242.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word243.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word244.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word245.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word246.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word247.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word248.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word249.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word25.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word250.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word251.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word252.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word253.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word254.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word255.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word256.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word257.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word258.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word259.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word26.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word260.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word261.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word262.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word263.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word264.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word265.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word266.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word267.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word268.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word269.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word27.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word270.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word271.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word272.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word273.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word274.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word275.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word276.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word277.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word278.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word279.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word28.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word280.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word281.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word282.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word283.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word284.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word285.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word286.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word287.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word288.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word289.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word29.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word290.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word291.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word292.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word293.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word294.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word295.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word296.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word297.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word298.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word299.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word3.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word30.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word300.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word301.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word302.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word303.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word304.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word305.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word306.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word307.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word308.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word309.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word31.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word310.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word311.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word312.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word313.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word314.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word315.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word316.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word317.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word318.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word319.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word32.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word320.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word321.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word322.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word323.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word324.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word325.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word326.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word327.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word33.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word34.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word35.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word36.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word37.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word38.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word39.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word4.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word40.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word41.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word42.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word43.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word44.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word45.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word46.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word47.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word48.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word49.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word5.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word50.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word51.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word52.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word53.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word54.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word55.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word56.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word57.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word58.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word59.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word6.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word60.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word61.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word62.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word63.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word64.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word65.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word66.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word67.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word68.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word69.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word7.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word70.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word71.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word72.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word73.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word74.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word75.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word76.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word77.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word78.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word79.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word8.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word80.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word81.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word82.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word83.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word84.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word85.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word86.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word87.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word88.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word89.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word9.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word90.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word91.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word92.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word93.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word94.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word95.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word96.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word97.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word98.png
+data/data/inputImgs/CSSVolume1/results/1_46_a.png/word99.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/1_46_b.png_output.txt
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/1_46_b.pngbox.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word0.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word1.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word10.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word100.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word101.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word102.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word103.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word104.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word105.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word106.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word107.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word108.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word109.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word11.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word110.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word111.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word112.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word113.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word114.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word115.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word116.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word117.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word118.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word119.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word12.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word120.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word121.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word122.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word123.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word124.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word125.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word126.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word127.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word128.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word129.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word13.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word130.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word131.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word132.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word133.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word134.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word135.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word136.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word137.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word138.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word139.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word14.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word140.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word141.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word142.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word143.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word144.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word145.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word146.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word147.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word148.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word149.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word15.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word150.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word151.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word152.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word153.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word154.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word155.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word156.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word157.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word158.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word159.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word16.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word160.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word161.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word162.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word163.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word164.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word165.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word166.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word167.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word168.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word169.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word17.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word170.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word171.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word172.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word173.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word174.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word175.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word176.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word177.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word178.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word179.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word18.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word180.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word181.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word182.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word183.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word184.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word185.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word186.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word187.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word188.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word189.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word19.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word190.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word191.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word192.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word193.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word194.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word195.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word196.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word197.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word198.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word199.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word2.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word20.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word200.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word201.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word202.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word203.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word204.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word205.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word206.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word207.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word208.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word209.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word21.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word210.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word211.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word212.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word213.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word214.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word215.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word216.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word217.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word218.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word219.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word22.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word220.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word221.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word222.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word223.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word224.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word23.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word24.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word25.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word26.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word27.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word28.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word29.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word3.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word30.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word31.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word32.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word33.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word34.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word35.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word36.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word37.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word38.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word39.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word4.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word40.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word41.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word42.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word43.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word44.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word45.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word46.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word47.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word48.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word49.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word5.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word50.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word51.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word52.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word53.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word54.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word55.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word56.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word57.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word58.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word59.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word6.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word60.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word61.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word62.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word63.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word64.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word65.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word66.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word67.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word68.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word69.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word7.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word70.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word71.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word72.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word73.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word74.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word75.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word76.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word77.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word78.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word79.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word8.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word80.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word81.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word82.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word83.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word84.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word85.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word86.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word87.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word88.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word89.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word9.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word90.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word91.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word92.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word93.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word94.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word95.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word96.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word97.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word98.png
+data/data/inputImgs/CSSVolume1/results/1_46_b.png/word99.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/1_47_a.png_output.txt
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/1_47_a.pngbox.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word0.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word1.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word10.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word100.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word101.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word102.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word103.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word104.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word105.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word106.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word107.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word108.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word109.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word11.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word110.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word111.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word112.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word113.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word114.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word115.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word116.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word117.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word118.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word119.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word12.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word120.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word121.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word122.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word123.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word124.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word125.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word126.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word127.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word128.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word129.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word13.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word130.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word131.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word132.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word133.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word134.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word135.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word136.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word137.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word138.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word139.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word14.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word140.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word141.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word142.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word143.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word144.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word145.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word146.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word147.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word148.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word149.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word15.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word150.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word151.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word152.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word153.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word154.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word155.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word156.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word157.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word158.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word159.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word16.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word160.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word161.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word162.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word163.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word164.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word165.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word166.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word167.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word168.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word169.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word17.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word170.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word171.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word172.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word173.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word174.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word175.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word176.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word177.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word178.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word179.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word18.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word180.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word181.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word182.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word183.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word184.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word185.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word186.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word187.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word188.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word189.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word19.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word190.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word191.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word192.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word193.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word194.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word195.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word196.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word197.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word198.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word199.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word2.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word20.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word200.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word201.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word202.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word203.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word204.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word205.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word206.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word207.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word208.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word209.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word21.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word210.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word211.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word212.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word213.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word214.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word215.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word216.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word217.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word218.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word219.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word22.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word220.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word221.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word222.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word223.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word224.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word225.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word226.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word227.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word228.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word229.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word23.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word230.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word231.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word232.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word233.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word234.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word235.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word236.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word237.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word238.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word239.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word24.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word240.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word241.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word242.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word243.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word244.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word245.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word246.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word247.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word248.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word249.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word25.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word250.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word251.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word252.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word253.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word254.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word255.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word256.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word257.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word258.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word259.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word26.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word260.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word261.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word262.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word263.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word264.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word265.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word266.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word267.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word268.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word269.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word27.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word270.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word271.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word272.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word273.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word274.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word275.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word276.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word277.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word278.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word279.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word28.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word280.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word281.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word282.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word283.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word284.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word285.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word286.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word287.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word288.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word289.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word29.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word290.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word291.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word292.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word293.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word294.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word295.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word296.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word297.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word298.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word299.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word3.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word30.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word300.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word301.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word302.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word303.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word304.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word305.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word306.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word307.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word308.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word309.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word31.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word310.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word311.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word312.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word313.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word314.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word315.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word316.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word317.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word318.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word319.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word32.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word320.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word321.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word322.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word323.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word324.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word325.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word326.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word327.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word328.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word33.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word34.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word35.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word36.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word37.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word38.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word39.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word4.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word40.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word41.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word42.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word43.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word44.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word45.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word46.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word47.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word48.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word49.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word5.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word50.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word51.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word52.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word53.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word54.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word55.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word56.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word57.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word58.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word59.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word6.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word60.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word61.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word62.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word63.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word64.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word65.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word66.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word67.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word68.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word69.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word7.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word70.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word71.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word72.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word73.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word74.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word75.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word76.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word77.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word78.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word79.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word8.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word80.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word81.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word82.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word83.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word84.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word85.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word86.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word87.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word88.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word89.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word9.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word90.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word91.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word92.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word93.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word94.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word95.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word96.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word97.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word98.png
+data/data/inputImgs/CSSVolume1/results/1_47_a.png/word99.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/1_47_b.png_output.txt
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/1_47_b.pngbox.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word0.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word1.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word10.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word100.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word101.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word102.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word103.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word104.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word105.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word106.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word107.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word108.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word109.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word11.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word110.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word111.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word112.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word113.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word114.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word115.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word116.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word117.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word118.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word119.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word12.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word120.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word121.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word122.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word123.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word124.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word125.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word126.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word127.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word128.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word129.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word13.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word130.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word131.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word132.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word133.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word134.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word135.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word136.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word137.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word138.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word139.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word14.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word140.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word141.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word142.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word143.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word144.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word145.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word146.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word147.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word148.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word149.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word15.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word150.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word151.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word152.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word153.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word154.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word155.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word156.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word157.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word158.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word159.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word16.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word160.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word161.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word162.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word163.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word164.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word165.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word166.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word167.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word168.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word169.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word17.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word170.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word171.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word172.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word173.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word174.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word175.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word176.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word177.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word178.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word179.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word18.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word180.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word181.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word182.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word183.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word184.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word185.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word186.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word187.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word188.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word189.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word19.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word190.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word191.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word192.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word193.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word194.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word195.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word196.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word197.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word198.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word199.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word2.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word20.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word200.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word201.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word202.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word203.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word204.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word205.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word206.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word207.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word208.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word209.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word21.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word210.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word211.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word212.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word213.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word214.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word215.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word216.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word217.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word218.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word219.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word22.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word220.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word221.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word222.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word223.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word224.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word225.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word226.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word227.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word228.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word229.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word23.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word230.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word231.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word232.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word233.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word234.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word235.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word236.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word237.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word238.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word239.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word24.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word240.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word241.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word242.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word243.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word244.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word245.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word246.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word247.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word248.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word249.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word25.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word250.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word251.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word252.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word253.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word254.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word255.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word256.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word257.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word258.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word259.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word26.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word260.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word261.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word262.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word263.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word264.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word265.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word266.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word267.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word27.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word28.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word29.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word3.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word30.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word31.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word32.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word33.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word34.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word35.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word36.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word37.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word38.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word39.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word4.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word40.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word41.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word42.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word43.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word44.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word45.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word46.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word47.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word48.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word49.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word5.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word50.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word51.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word52.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word53.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word54.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word55.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word56.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word57.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word58.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word59.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word6.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word60.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word61.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word62.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word63.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word64.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word65.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word66.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word67.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word68.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word69.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word7.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word70.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word71.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word72.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word73.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word74.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word75.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word76.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word77.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word78.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word79.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word8.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word80.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word81.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word82.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word83.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word84.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word85.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word86.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word87.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word88.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word89.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word9.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word90.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word91.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word92.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word93.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word94.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word95.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word96.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word97.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word98.png
+data/data/inputImgs/CSSVolume1/results/1_47_b.png/word99.png
+data/data/resultFilter.py
+data/data/results.json
+data/data/resultsFilteredFailed.json
+data/data/resultsFilteredPassed.json
+data/data/splittingDataset.py
+data/data/vocab_extraction.py
+diff_output.txt
+doctr/datasets/generator/base.py
+doctr/datasets/vocabs.py
+doctr/models/recognition/crnn/pytorch.py
+doctr/models/recognition/zoo.py
+fontsForDiacritics/devanagari/Arya-Bold.ttf
+fontsForDiacritics/devanagari/Arya-Regular.ttf
+fontsForDiacritics/devanagari/Lohit-Devanagari.ttf
+fontsForDiacritics/devanagari/NotoSansDevanagari-Bold.ttf
+fontsForDiacritics/devanagari/NotoSansDevanagari-Regular.ttf
+fontsForDiacritics/devanagari/Poppins-Bold.ttf
+fontsForDiacritics/devanagari/Poppins-BoldItalic.ttf
+fontsForDiacritics/devanagari/Poppins-Italic.ttf
+fontsForDiacritics/devanagari/Poppins-Regular.ttf
+fontsForDiacritics/devanagari/Sanskrit2003.ttf
+fontsForDiacritics/devanagari/Sarpanch-Bold.ttf
+fontsForDiacritics/devanagari/Sarpanch-Regular.ttf
+fontsForDiacritics/devanagari/Shobhika-Bold.otf
+fontsForDiacritics/devanagari/Shobhika-Regular.otf
+fontsForDiacritics/devanagari/chandas.ttf
+fontsForDiacritics/devanagari/siddhanta.ttf
+fontsForDiacritics/devanagari/uttara.ttf
+fontsForDiacritics/eng/Arial.ttf
+fontsForDiacritics/eng/Arial_Bold.ttf
+fontsForDiacritics/eng/Arial_Bold_Italic.ttf
+fontsForDiacritics/eng/Arial_Italic.ttf
+fontsForDiacritics/eng/Cardo104s.ttf
+fontsForDiacritics/eng/Cardob101.ttf
+fontsForDiacritics/eng/Cardoi99.ttf
+fontsForDiacritics/eng/DejaVuSans-Bold.ttf
+fontsForDiacritics/eng/DejaVuSans-BoldOblique.ttf
+fontsForDiacritics/eng/DejaVuSans-Oblique.ttf
+fontsForDiacritics/eng/DejaVuSans.ttf
+fontsForDiacritics/eng/EBGaramond12-Italic.otf
+fontsForDiacritics/eng/EBGaramond12-Regular.otf
+fontsForDiacritics/eng/Georgia.ttf
+fontsForDiacritics/eng/Georgia_Bold.ttf
+fontsForDiacritics/eng/Georgia_Bold_Italic.ttf
+fontsForDiacritics/eng/Georgia_Italic.ttf
+fontsForDiacritics/eng/Lato-Bold.ttf
+fontsForDiacritics/eng/Lato-BoldItalic.ttf
+fontsForDiacritics/eng/Lato-Italic.ttf
+fontsForDiacritics/eng/Lato-Regular.ttf
+fontsForDiacritics/eng/NimbusSans-Bold.otf
+fontsForDiacritics/eng/NimbusSans-BoldItalic.otf
+fontsForDiacritics/eng/NimbusSans-Italic.otf
+fontsForDiacritics/eng/NimbusSans-Regular.otf
+fontsForDiacritics/eng/Quicksand-Bold.ttf
+fontsForDiacritics/eng/Quicksand-Regular.ttf
+fontsForDiacritics/eng/Times_New_Roman.ttf
+fontsForDiacritics/eng/Times_New_Roman_Bold.ttf
+fontsForDiacritics/eng/Times_New_Roman_Bold_Italic.ttf
+fontsForDiacritics/eng/Times_New_Roman_Italic.ttf
+fontsForDiacritics/eng/Verdana.ttf
+fontsForDiacritics/eng/Verdana_Bold.ttf
+fontsForDiacritics/eng/Verdana_Bold_Italic.ttf
+fontsForDiacritics/eng/Verdana_Italic.ttf
+fontsForDiacritics/iast/Arial.ttf
+fontsForDiacritics/iast/Arial_Bold.ttf
+fontsForDiacritics/iast/Arial_Bold_Italic.ttf
+fontsForDiacritics/iast/Arial_Italic.ttf
+fontsForDiacritics/iast/Caladea-Bold.ttf
+fontsForDiacritics/iast/Caladea-BoldItalic.ttf
+fontsForDiacritics/iast/Caladea-Italic.ttf
+fontsForDiacritics/iast/Caladea-Regular.ttf
+fontsForDiacritics/iast/Carlito-Bold.ttf
+fontsForDiacritics/iast/Carlito-BoldItalic.ttf
+fontsForDiacritics/iast/Carlito-Italic.ttf
+fontsForDiacritics/iast/Carlito-Regular.ttf
+fontsForDiacritics/iast/CharisSIL-B.ttf
+fontsForDiacritics/iast/CharisSIL-BI.ttf
+fontsForDiacritics/iast/CharisSIL-I.ttf
+fontsForDiacritics/iast/CharisSIL-R.ttf
+fontsForDiacritics/iast/DejaVuSans-Bold.ttf
+fontsForDiacritics/iast/DejaVuSans-BoldOblique.ttf
+fontsForDiacritics/iast/DejaVuSans-Oblique.ttf
+fontsForDiacritics/iast/DejaVuSans.ttf
+fontsForDiacritics/iast/NimbusSans-Bold.otf
+fontsForDiacritics/iast/NimbusSans-BoldItalic.otf
+fontsForDiacritics/iast/NimbusSans-Italic.otf
+fontsForDiacritics/iast/NimbusSans-Regular.otf
+fontsForDiacritics/iast/NotoSans-Bold.ttf
+fontsForDiacritics/iast/NotoSans-BoldItalic.ttf
+fontsForDiacritics/iast/NotoSans-Italic.ttf
+fontsForDiacritics/iast/NotoSans-Regular.ttf
+fontsForDiacritics/iast/OpenSans-Bold.ttf
+fontsForDiacritics/iast/OpenSans-BoldItalic.ttf
+fontsForDiacritics/iast/OpenSans-Italic.ttf
+fontsForDiacritics/iast/OpenSans-Regular.ttf
+fontsForDiacritics/iast/Times_New_Roman.ttf
+fontsForDiacritics/iast/Times_New_Roman_Bold.ttf
+fontsForDiacritics/iast/Times_New_Roman_Bold_Italic.ttf
+fontsForDiacritics/iast/Times_New_Roman_Italic.ttf
+fontsForDiacritics/iast/Verdana.ttf
+fontsForDiacritics/iast/Verdana_Bold.ttf
+fontsForDiacritics/iast/Verdana_Bold_Italic.ttf
+fontsForDiacritics/iast/Verdana_Italic.ttf
+nav_test/AirConservation.pdf
+nav_test/testingDiacritics.py
+references/recognition/README.md
+references/recognition/train_pytorch.py
+requirements.txt

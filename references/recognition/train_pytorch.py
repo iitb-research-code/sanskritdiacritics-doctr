@@ -252,7 +252,9 @@ def main(args):
         collate_fn=val_set.collate_fn,
     )
     print(f"Validation set loaded in {time.time() - st:.4}s ({len(val_set)} samples in " f"{len(val_loader)} batches)")
-
+    if args.show_samples:
+        x, target = next(iter(val_loader))
+        plot_samples(x, target)
     batch_transforms = Normalize(mean=(0.694, 0.695, 0.693), std=(0.299, 0.296, 0.301))
 
     # Load doctr model
@@ -262,7 +264,7 @@ def main(args):
     if isinstance(args.resume, str):
         print(f"Resuming {args.resume}")
         checkpoint = torch.load(args.resume, map_location="cpu")
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint, strict=False)
 
     # GPU
     if isinstance(args.device, int):
