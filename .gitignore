@@ -140,3 +140,7 @@ wandb/
 *.index
 git_status.txt
 diff_output.txt
+diff_output.txt
+data/data/InferenceTryTemp.py
+.gitignore
+diff_output.txt
