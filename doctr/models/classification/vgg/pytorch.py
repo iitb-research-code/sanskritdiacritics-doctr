@@ -13,7 +13,7 @@ from doctr.datasets import VOCABS
 
 from ...utils import load_pretrained_params
 
-__all__ = ["vgg16_bn_r"]
+__all__ = ["vgg16_bn_r","vgg16_bn_r_iast"]
 
 
 default_cfgs: Dict[str, Dict[str, Any]] = {
@@ -22,6 +22,13 @@ default_cfgs: Dict[str, Dict[str, Any]] = {
         "std": (0.299, 0.296, 0.301),
         "input_shape": (3, 32, 32),
         "classes": list(VOCABS["french"]),
+        "url": "https://doctr-static.mindee.com/models?id=v0.4.1/vgg16_bn_r-d108c19c.pt&src=0",
+    },
+    "vgg16_bn_r_iast": {
+        "mean": (0.694, 0.695, 0.693),
+        "std": (0.299, 0.296, 0.301),
+        "input_shape": (3, 32, 32),
+        "classes": list(VOCABS["sanskrit_diacritics_training"]),
         "url": "https://doctr-static.mindee.com/models?id=v0.4.1/vgg16_bn_r-d108c19c.pt&src=0",
     },
 }
@@ -37,12 +44,11 @@ def _vgg(
 ) -> tv_vgg.VGG:
     kwargs["num_classes"] = kwargs.get("num_classes", len(default_cfgs[arch]["classes"]))
     kwargs["classes"] = kwargs.get("classes", default_cfgs[arch]["classes"])
-
+    print('arch is ',arch)
     _cfg = deepcopy(default_cfgs[arch])
     _cfg["num_classes"] = kwargs["num_classes"]
     _cfg["classes"] = kwargs["classes"]
     kwargs.pop("classes")
-
     # Build the model
     model = tv_vgg.__dict__[tv_arch](**kwargs)
     # List the MaxPool2d
@@ -57,6 +63,7 @@ def _vgg(
     if pretrained:
         # The number of classes is not the same as the number of classes in the pretrained model =>
         # remove the last layer weights
+        
         _ignore_keys = ignore_keys if kwargs["num_classes"] != len(default_cfgs[arch]["classes"]) else None
         load_pretrained_params(model, default_cfgs[arch]["url"], ignore_keys=_ignore_keys)
 
@@ -85,6 +92,34 @@ def vgg16_bn_r(pretrained: bool = False, **kwargs: Any) -> tv_vgg.VGG:
 
     return _vgg(
         "vgg16_bn_r",
+        pretrained,
+        "vgg16_bn",
+        3,
+        ignore_keys=["classifier.weight", "classifier.bias"],
+        **kwargs,
+    )
+
+def vgg16_bn_r_iast(pretrained: bool = False, **kwargs: Any) -> tv_vgg.VGG:
+    """VGG-16 architecture as described in `"Very Deep Convolutional Networks for Large-Scale Image Recognition"
+    <https://arxiv.org/pdf/1409.1556.pdf>`_, modified by adding batch normalization, rectangular pooling and a simpler
+    classification head.
+
+    >>> import torch
+    >>> from doctr.models import vgg16_bn_r
+    >>> model = vgg16_bn_r(pretrained=False)
+    >>> input_tensor = torch.rand((1, 3, 512, 512), dtype=torch.float32)
+    >>> out = model(input_tensor)
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+
+    Returns:
+        VGG feature extractor
+    """
+    
+
+    return _vgg(
+        "vgg16_bn_r_iast",
         pretrained,
         "vgg16_bn",
         3,

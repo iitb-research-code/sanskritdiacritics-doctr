@@ -138,3 +138,5 @@ wandb/
 *.pt
 *.pb
 *.index
+git_status.txt
+diff_output.txt

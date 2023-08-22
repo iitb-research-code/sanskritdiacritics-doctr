@@ -13,20 +13,24 @@ from torch.nn import functional as F
 
 from doctr.datasets import VOCABS, decode_sequence
 
-from ...classification import mobilenet_v3_large_r, mobilenet_v3_small_r, vgg16_bn_r
+from ...classification import mobilenet_v3_large_r, mobilenet_v3_small_r, vgg16_bn_r,vgg16_bn_r_iast
 from ...utils.pytorch import load_pretrained_params
 from ..core import RecognitionModel, RecognitionPostProcessor
 
-__all__ = ["CRNN","crnn_vgg16_bn_diacritics", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
+__all__ = ["CRNN","crnn_vgg16_bn_iast", "crnn_vgg16_bn", "crnn_mobilenet_v3_small", "crnn_mobilenet_v3_large"]
+
+#"url": "https://doctr-static.mindee.com/models?id=v0.3.1/crnn_vgg16_bn-9762b0b0.pt&src=0",
 
 default_cfgs: Dict[str, Dict[str, Any]] = {
-    "crnn_vgg16_bn_diacritics": {
+    "crnn_vgg16_bn_iast": {
         "mean": (0.694, 0.695, 0.693),
         "std": (0.299, 0.296, 0.301),
         "input_shape": (3, 32, 128),
-        "vocab": VOCABS["diacritics_training"],
-        #"url": "https://doctr-static.mindee.com/models?id=v0.3.1/crnn_vgg16_bn-9762b0b0.pt&src=0",
-        "url":"https://github.com/navaneeth031/navindicDocTRforSansDiacritics/releases/download/Model-IASTENG/crnn_vgg16_bn_diacritics_20230815-145907_0.00003_IASTand.Eng_v1.pt",
+        "vocab": VOCABS["sanskrit_diacritics_training"],
+        #"url":"https://github.com/navaneeth031/navindicDocTRforSansDiacritics/releases/download/Model-IASTENG/crnn_vgg16_bn_diacritics_20230815-145907_0.00003_IASTand.Eng_v1.pt",
+        #"url":"https://github.com/navaneeth031/navindicDocTRforSansDiacritics/releases/download/Model-IASTENG/crnn_vgg16_bn_diacritics_20230820-153255.pt",
+        "url":None,
+        "path":"/home/venkat/workspace/sanskritdiacritics-doctr/crnn_vgg16_bn_diacritics_20230820-153255.pt",
     },
     "crnn_vgg16_bn": {
         "mean": (0.694, 0.695, 0.693),
@@ -251,19 +255,22 @@ def _crnn(
 
     kwargs["vocab"] = kwargs.get("vocab", default_cfgs[arch]["vocab"])
     kwargs["input_shape"] = kwargs.get("input_shape", default_cfgs[arch]["input_shape"])
-
+    kwargs['url'] = kwargs.get('url',default_cfgs[arch]["url"])
+    kwargs['path'] = kwargs.get('path',default_cfgs[arch]["path"])
+    
     _cfg = deepcopy(default_cfgs[arch])
     _cfg["vocab"] = kwargs["vocab"]
     _cfg["input_shape"] = kwargs["input_shape"]
 
     # Build the model
     model = CRNN(feat_extractor, cfg=_cfg, **kwargs)  # type: ignore[arg-type]
+    
     # Load pretrained parameters
     if pretrained:
         # The number of classes is not the same as the number of classes in the pretrained model =>
         # remove the last layer weights
         _ignore_keys = ignore_keys if _cfg["vocab"] != default_cfgs[arch]["vocab"] else None
-        load_pretrained_params(model, _cfg["url"], ignore_keys=_ignore_keys)
+        load_pretrained_params(model, _cfg["url"],_cfg["path"], ignore_keys=_ignore_keys)
 
     return model
 
@@ -339,6 +346,7 @@ def crnn_mobilenet_v3_large(pretrained: bool = False, **kwargs: Any) -> CRNN:
         **kwargs,
     )
 
-def crnn_vgg16_bn_diacritics(pretrained: bool = False, **kwargs: Any) -> CRNN:
+def crnn_vgg16_bn_iast(pretrained: bool = False, **kwargs: Any) -> CRNN:
     #pretrained_backbone=False -- add this for training 
-    return _crnn("crnn_vgg16_bn_diacritics", pretrained, vgg16_bn_r, ignore_keys=["linear.weight", "linear.bias"], **kwargs)
+    
+    return _crnn("crnn_vgg16_bn_iast", pretrained, vgg16_bn_r_iast ,  ignore_keys=None, **kwargs)

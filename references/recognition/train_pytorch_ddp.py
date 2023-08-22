@@ -168,7 +168,9 @@ def main(rank: int, world_size: int, args):
     if isinstance(args.resume, str):
         print(f"Resuming {args.resume}")
         checkpoint = torch.load(args.resume, map_location="cpu")
-        model.load_state_dict(checkpoint)
+        #model.load_state_dict(checkpoint)
+        #for dpp by Venkat
+        model.load_state_dict(checkpoint, strict=False)
 
     # create default process group
     device = torch.device("cuda", args.devices[rank])

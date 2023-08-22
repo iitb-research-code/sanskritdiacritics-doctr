@@ -21,6 +21,7 @@ def _copy_tensor(x: torch.Tensor) -> torch.Tensor:
 def load_pretrained_params(
     model: nn.Module,
     url: Optional[str] = None,
+    path: Optional[str]=None,
     hash_prefix: Optional[str] = None,
     overwrite: bool = False,
     ignore_keys: Optional[List[str]] = None,
@@ -41,6 +42,7 @@ def load_pretrained_params(
 
     if url is None:
         logging.warning("Invalid model URL, using default initialization.")
+        archive_path=path
     else:
         archive_path = download_from_url(url, hash_prefix=hash_prefix, cache_subdir="models", **kwargs)
 
@@ -56,7 +58,7 @@ def load_pretrained_params(
                 raise ValueError("unable to load state_dict, due to non-matching keys.")
         else:
             # Load weights
-            model.load_state_dict(state_dict)
+            model.load_state_dict(state_dict,strict=False)
 
 
 def conv_sequence_pt(

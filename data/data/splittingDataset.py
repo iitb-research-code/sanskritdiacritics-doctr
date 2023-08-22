@@ -1,6 +1,6 @@
 import random
 
-filename="combined_diatrics_input_EngAndIASTcompliant.txt" #input file name which contains list of words
+filename="combined_diatrics_input_IASTcompliant.txt" #input file name which contains list of words
 
 corpusString = open(filename, "r", encoding="utf-8").read()
 corpus =corpusString.split()
@@ -9,14 +9,14 @@ print ("corpus type", type(corpus) )
 
 print ("corpus:\n", corpus[10000:10005] )
 
-max_char_length = 12
+max_char_length = 1000
 filtered_corpus = [sample for sample in corpus if len(sample) <= max_char_length]
 
 random_seed = 42  # Set the seed to any desired value
 random.seed(random_seed)
 random.shuffle(filtered_corpus)
 
-split_ratio = 0.75
+split_ratio = 0.80
 split_index = int(len(filtered_corpus) * split_ratio)
 
 training_data = filtered_corpus[:split_index]

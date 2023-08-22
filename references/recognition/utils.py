@@ -31,7 +31,7 @@ def plot_samples(images, targets):
     for ax in axes.ravel():
         ax.axis("off")
 
-    plt.show()
+    plt.savefig("/home/venkat/workspace/sanskritdiacritics-doctr/dummy_name.png")
 
 
 def plot_recorder(lr_recorder, loss_recorder, beta: float = 0.95, **kwargs) -> None:

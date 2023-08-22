@@ -223,6 +223,8 @@ def main(args):
     else:
         val_hash = None
         # Load synthetic data generator
+        print("args.val_samples * len(vocab) :",args.val_samples, len(vocab),args.val_samples* len(vocab))
+        
         val_set = WordGenerator(
             vocab=vocab,
             min_chars=args.min_chars,
@@ -361,7 +363,7 @@ def main(args):
     if args.show_samples:
         x, target = next(iter(train_loader))
         plot_samples(x, target)
-        return
+        #return
 
     # Optimizer
     optimizer = torch.optim.Adam(
@@ -498,7 +500,11 @@ def parse_args():
     parser.add_argument("--find-lr", action="store_true", help="Gridsearch the optimal LR")
     parser.add_argument("--save_samples_root", help="saves samples as images")
 
+    print( "type(parser)", type(parser))
+
     args = parser.parse_args()
+
+    print( "type(args)", type(args))
 
     return args
 

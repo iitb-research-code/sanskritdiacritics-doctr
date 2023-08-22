@@ -1,0 +1,20 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "/home/venkat/workspace/pyvenvs/sansdianew/bin/python",
+            "args": ["crnn_vgg16_bn_iast", "--epochs", "2", "--device", "2", "--font", "/home/venkat/workspace/sanskritdiacritics-doctr/fontsForDiacritics/iast/Arial.ttf", "-b", "1024", "--vocab", "sanskrit_diacritics_training", "--input_size", "32", "--train-samples", "50", "--val-samples", "100", "--lr", "0.00003", "--name", "dummy","--resume","/home/venkat/workspace/sanskritdiacritics-doctr/crnn_vgg16_bn_iast_20230821-203214.pt","--pretrained"]
+        }   
+    ]
+}
